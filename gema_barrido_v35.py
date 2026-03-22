@@ -1,62 +1,56 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 
-st.set_page_config(page_title="Gema Barrido v35", layout="wide")
-st.title("🎯 Gema Macdelorean v35.0 - Barrido")
+# 1. Configuración básica
+st.set_page_config(page_title="Gema Radar", layout="wide")
+st.title("🎯 Radar Barrido v35")
 
-MERCADOS = {
-    "DOW JONES": ["MMM", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DIS", "GS", "HD", "HON", "IBM", "INTC", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "CRM", "TRV", "UNH", "VZ", "V", "WMT", "AMZN"],
-    "NASDAQ & SP500": ["NVDA", "META", "TSLA", "AVGO", "PEP", "COST", "ADBE", "AMD", "NFLX", "QCOM", "PLTR", "MSTR", "UBER", "ABNB"],
-    "IBEX & EUROPA": ["ITX.MC", "IBE.MC", "BBVA.MC", "SAN.MC", "CABK.MC", "TEF.MC", "SAB.MC", "BKT.MC", "SAP.DE", "SIE.DE", "MC.PA"],
-    "CRYPTOS": ["BTC-USD", "ETH-USD", "SOL-USD"]
-}
+# 2. Lista de activos (Simplificada para probar)
+activos = ["AAPL", "MSFT", "NVDA", "TSLA", "BTC-USD", "ETH-USD", "GC=F", "ITX.MC", "SAN.MC"]
 
-def analizar_gema(ticker):
+# 3. Función de análisis
+def analizar(ticker):
     try:
-        df_w = yf.download(ticker, period="2y", interval="1wk", progress=False, auto_adjust=True)
-        df_m = yf.download(ticker, period="5y", interval="1mo", progress=False, auto_adjust=True)
-        if isinstance(df_w.columns, pd.MultiIndex): df_w.columns = df_w.columns.get_level_values(0)
-        if isinstance(df_m.columns, pd.MultiIndex): df_m.columns = df_m.columns.get_level_values(0)
-        for df in [df_w, df_m]:
-            macd = df.ta.macd()
-            df['MACD'] = macd['MACD_12_26_9']
-            df['Signal'] = macd['MACDs_12_26_9']
-            df['K'] = df.ta.stoch(k=14, d=3)['STOCHk_14_3_3']
-        return {'W': df_w, 'M': df_m}
-    except: return None
-
-def detectar_engano(df):
-    k_actual = round(df.iloc[-1]['K'], 1)
-    for i in range(1, 5):
-        curr = df.iloc[-i]; prev = df.iloc[-i-1]
+        # Descarga datos semanales
+        df = yf.download(ticker, period="1y", interval="1wk", progress=False)
+        if df.empty: return None
+        
+        # Limpieza de columnas (Evita el error de yfinance)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+            
+        # Cálculo de indicadores
+        df['MACD'] = ta.macd(df['Close'])['MACD_12_26_9']
+        df['K'] = ta.stoch(df['High'], df['Low'], df['Close'])['STOCHk_14_3_3']
+        
+        # Lógica de Barrido (Engaño)
+        curr = df.iloc[-1]
+        prev = df.iloc[-2]
         mid_prev = (prev['High'] + prev['Low']) / 2
+        
+        # Detectar señal
         if curr['Low'] < prev['Low'] and curr['Close'] > mid_prev:
-            return "ALCISTA 🟢", ("Esta Sem" if i==1 else f"Hace {i-1} Sem"), k_actual
+            return "ALCISTA 🟢", round(curr['K'], 1)
         if curr['High'] > prev['High'] and curr['Close'] < mid_prev:
-            return "BAJISTA 🔴", ("Esta Sem" if i==1 else f"Hace {i-1} Sem"), k_actual
-    return "SIN VELA", "---", k_actual
+            return "BAJISTA 🔴", round(curr['K'], 1)
+            
+        return None, round(curr['K'], 1)
+    except Exception as e:
+        return f"Error: {e}", 0
 
-with st.sidebar:
-    st.header("⚙️ Control")
-    selec = st.selectbox("Mercado", list(MERCADOS.keys()))
-    lanzar = st.button("🚀 INICIAR BARRIDO")
-
-if lanzar:
-    lista = MERCADOS[selec]
-    st.info(f"Escaneando {len(lista)} activos...")
-    res = []
-    bar = st.progress(0)
-    for idx, t in enumerate(lista):
-        p = analizar_gema(t)
-        if p:
-            m = p['M'].iloc[-1]; m_p = p['M'].iloc[-2]
-            w = p['W'].iloc[-1]; w_p = p['W'].iloc[-2]
-            m_i = f"{'S0' if m['MACD']>0 else 'B0'}/{'UP' if m['MACD']>m_p['MACD'] else 'DN'}"
-            w_i = "ALCISTA" if w['MACD'] > w_p['MACD'] else "BAJISTA"
-            s, a, k = detectar_engano(p['W'])
-            pre = "💎" if (s == "ALCISTA 🟢" and m['MACD'] > 0 and k < 25) else ""
-            res.append({"Ticker": t, "Premium": pre, "Gatillo": s, "Antig": a, "MACD M": m_i, "MACD S": w_i, "Stoch": k})
-        bar.progress((idx+1)/len(lista))
-    st.dataframe(pd.DataFrame(res), use_container_width=True)
+# 4. Interfaz
+if st.button("🚀 LANZAR ESCÁNER"):
+    resultados = []
+    for t in activos:
+        st.write(f"Analizando {t}...")
+        senal, stoch = analizar(t)
+        if senal:
+            resultados.append({"Ticker": t, "Señal": senal, "Estocástico": stoch})
+    
+    if resultados:
+        st.table(resultados)
+    else:
+        st.success("Escaneo terminado. Sin señales claras ahora.")
