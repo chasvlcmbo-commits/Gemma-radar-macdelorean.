@@ -1,55 +1,109 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
+import concurrent.futures
 
-# 1. Configuración básica
-st.set_page_config(page_title="Gema Radar", layout="wide")
-st.title("🎯 Radar Barrido v35")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="GEMA v44 TSUNAMI", layout="wide")
 
-# 2. Lista de activos (Simplificada para probar)
-activos = ["AAPL", "MSFT", "NVDA", "TSLA", "BTC-USD", "ETH-USD", "GC=F", "ITX.MC", "SAN.MC"]
+st.markdown("""
+    <style>
+    .main { background-color: #0c1017; color: #f0f0f0; }
+    .stButton>button { 
+        width: 100%; height: 4em; background: #238636; color: white;
+        font-weight: bold; border-radius: 8px; border: 2px solid #30363d;
+    }
+    .signal-up { color: #2ea043; font-weight: bold; }
+    .signal-down { color: #da3633; font-weight: bold; }
+    </style>
+""", unsafe_allow_html=True)
 
-# 3. Función de análisis
-def analizar(ticker):
+st.title("🌊 GEMA v44 - Tsunami Global de Activos")
+
+# --- EL ARSENAL INFINITO ---
+listas = {
+    "🇺🇸 NASDAQ & TECH": ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST", "CSCO", "TMUS", "ADBE", "NFLX", "QCOM", "TXN", "AMD", "INTU", "INTC", "AMAT", "ISRG", "BKNG", "HON", "MDLZ", "VRTX", "ADP", "ADI", "LRCX", "REGN", "PANW", "SNPS", "MU", "KLAC", "CDNS", "MELI", "MAR", "ORLY", "CTAS", "ASML", "PYPL", "MNST", "FTNT", "KDP", "LULU", "WDAY", "ADSK", "NXPI", "EXC", "MCHP", "KHC", "AEP", "CPRT", "SBUX", "PAYX", "IDXX", "ROST", "MRVL", "ODFL", "AZN", "GILD", "BKR", "BIIB", "TEAM", "MSTR", "PDD", "EBAY", "JD", "LCID", "DDOG", "ZS", "OKTA"],
+    "🇺🇸 S&P 500 & DOW": ["JPM", "V", "MA", "PG", "HD", "CVX", "KO", "DIS", "WMT", "UNH", "CAT", "BA", "XOM", "BAC", "LLY", "ABBV", "PFE", "TMO", "MCD", "NKE", "LIN", "PM", "GS", "HON", "ORCL", "ACN", "ADBE", "TXN", "AXP", "AMGN", "CRM", "IBM", "DE", "GE", "MMM", "MO", "RTX", "T", "TGT", "UPS", "VZ", "WFC", "ZTS", "BLK", "NOW", "PLD", "SYK", "TMO", "EL", "LMT", "CI", "TJX", "MMC", "CVS", "AMT", "BMY", "BK", "SCHW", "C", "BSX", "DUK", "SO", "BDX", "ITW", "SLB", "CL", "EQIX", "WM", "HUM", "APH", "ICE", "MCK", "ETN", "MPC", "EMR", "AON", "HCA", "DHR", "FDX", "MCO", "USB", "ABT"],
+    "🇪🇸 IBEX 35": ["ITX.MC", "SAN.MC", "BBVA.MC", "IBE.MC", "TEF.MC", "REP.MC", "CABK.MC", "ACS.MC", "AENA.MC", "AMS.MC", "ANA.MC", "BKT.MC", "CLNX.MC", "ELE.MC", "ENG.MC", "FER.MC", "FDR.MC", "GRF.MC", "IAG.MC", "IDR.MC", "MAP.MC", "MRL.MC", "ROVI.MC", "SCYR.MC", "SLR.MC", "UNI.MC", "MEL.MC", "SAB.MC", "LOG.MC", "COL.MC"],
+    "🇫🇷 CAC 40 & 🇮🇹 MIB": ["MC.PA", "OR.PA", "RMS.PA", "TTE.PA", "SAN.PA", "AIR.PA", "BNP.PA", "EL.PA", "DG.PA", "AI.PA", "BN.PA", "SU.PA", "CS.PA", "KER.PA", "VIV.PA", "ENGI.PA", "CAP.PA", "ML.PA", "ACA.PA", "CA.PA", "RACE.MI", "ENI.MI", "ISP.MI", "UCG.MI", "STLAM.MI", "G.MI", "EGP.MI", "PRY.MI", "ENEL.MI", "TEN.MI", "AZM.MI", "FBK.MI", "A2A.MI", "AMP.MI", "BAMI.MI", "BPER.MI", "CPR.MI"],
+    "🇩🇪 DAX 40 & 🇳🇱 AEX": ["SAP.DE", "SIE.DE", "ALV.DE", "DTE.DE", "AIR.DE", "MBG.DE", "BMW.DE", "BAS.DE", "VOW3.DE", "MUV2.DE", "DHL.DE", "DBK.DE", "EOAN.DE", "RWE.DE", "IFX.DE", "BAYN.DE", "HEI.DE", "CON.DE", "MRK.DE", "BEI.DE", "ASML.AS", "PRX.AS", "UNA.AS", "ADYEN.AS", "INGA.AS", "HEIA.AS", "PHI.AS", "DSM.AS", "AKZA.AS"],
+    "🇨🇭 SMI (SUIZA)": ["NESN.SW", "ROG.SW", "NOVN.SW", "UBSG.SW", "ZURN.SW", "CFR.SW", "ABBN.SW", "SREN.SW", "GIVN.SW", "LONN.SW"],
+    "₿ CRIPTOS & MATERIAS": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "LINK-USD", "MATIC-USD", "SHIB-USD", "LTC-USD", "GC=F", "SI=F", "CL=F", "HG=F", "NG=F", "ZC=F", "ZW=F"]
+}
+
+# --- INTERFAZ ---
+col1, col2 = st.columns([1, 1])
+with col1:
+    temp = st.radio("⏱️ Temporalidad:", ["Semanal", "Mensual"], horizontal=True)
+    intervalo = "1wk" if temp == "Semanal" else "1mo"
+
+with col2:
+    with st.expander("🛡️ Selección de Escuadrones Globales", expanded=True):
+        seleccionados = []
+        for cat, lista in listas.items():
+            if st.checkbox(cat, value=True):
+                seleccionados.extend(lista)
+
+# --- FUNCIÓN DE ANÁLISIS ---
+def analizar_tsunami(ticker, interval):
     try:
-        # Descarga datos semanales
-        df = yf.download(ticker, period="1y", interval="1wk", progress=False)
-        if df.empty: return None
+        df = yf.download(ticker, period="3y", interval=interval, progress=False)
+        if df is None or len(df) < 30: return None
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
         
-        # Limpieza de columnas (Evita el error de yfinance)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+        macd = ta.macd(df['Close'])
+        df['MACD'] = macd['MACD_12_26_9']
+        stoch = ta.stoch(df['High'], df['Low'], df['Close'])
+        df['K'] = stoch['STOCHk_14_3_3']
+        
+        for i in range(1, 10): # Buscamos hasta 9 velas atrás
+            curr, prev = df.iloc[-i], df.iloc[-(i+1)]
+            mid_prev = (prev['High'] + prev['Low']) / 2
             
-        # Cálculo de indicadores
-        df['MACD'] = ta.macd(df['Close'])['MACD_12_26_9']
-        df['K'] = ta.stoch(df['High'], df['Low'], df['Close'])['STOCHk_14_3_3']
-        
-        # Lógica de Barrido (Engaño)
-        curr = df.iloc[-1]
-        prev = df.iloc[-2]
-        mid_prev = (prev['High'] + prev['Low']) / 2
-        
-        # Detectar señal
-        if curr['Low'] < prev['Low'] and curr['Close'] > mid_prev:
-            return "ALCISTA 🟢", round(curr['K'], 1)
-        if curr['High'] > prev['High'] and curr['Close'] < mid_prev:
-            return "BAJISTA 🔴", round(curr['K'], 1)
+            sig = ""
+            if curr['Low'] < prev['Low'] and curr['Close'] > mid_prev: sig = "ALCISTA 🟢"
+            elif curr['High'] > prev['High'] and curr['Close'] < mid_prev: sig = "BAJISTA 🔴"
             
-        return None, round(curr['K'], 1)
-    except Exception as e:
-        return f"Error: {e}", 0
+            if sig:
+                m_val = float(curr['MACD'])
+                m_txt = f"<span class='signal-up'>Alcista</span>" if m_val > 0 else f"<span class='signal-down'>Bajista</span>"
+                
+                return {
+                    "TICKER": f"**{ticker}**",
+                    "BARRIDO": f"<span class='{'signal-up' if '🟢' in sig else 'signal-down'}'>{sig}</span>",
+                    "VELAS": i-1,
+                    "MACD (0)": m_txt,
+                    "ESTOCÁSTICO": f"{round(float(curr['K']), 1)}%",
+                    "CIERRE": round(float(curr['Close']), 2)
+                }
+        return None
+    except: return None
 
-# 4. Interfaz
-if st.button("🚀 LANZAR ESCÁNER"):
-    resultados = []
-    for t in activos:
-        st.write(f"Analizando {t}...")
-        senal, stoch = analizar(t)
-        if senal:
-            resultados.append({"Ticker": t, "Señal": senal, "Estocástico": stoch})
-    
-    if resultados:
-        st.table(resultados)
+# --- BOTÓN ---
+if st.button("🌊 INICIAR RASTREO MASIVO GLOBAL"):
+    total = len(seleccionados)
+    if total == 0: st.error("Selecciona al menos un escuadrón.")
     else:
-        st.success("Escaneo terminado. Sin señales claras ahora.")
+        prog = st.progress(0)
+        status = st.empty()
+        encontrados = []
+        
+        # Procesamiento en paralelo para que no tarde una eternidad
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+            future_to_ticker = {executor.submit(analizar_tsunami, t, intervalo): t for t in seleccionados}
+            for i, future in enumerate(concurrent.futures.as_completed(future_to_ticker)):
+                status.text(f"Rastreando {i+1}/{total}: {future_to_ticker[future]}")
+                res = future.result()
+                if res: encontrados.append(res)
+                prog.progress((i+1)/total)
+        
+        status.text(f"✅ Rastreo completo. {total} activos analizados.")
+        if encontrados:
+            st.balloons()
+            df_res = pd.DataFrame(encontrados)
+            st.write(df_res.to_html(escape=False, index=False), unsafe_allow_html=True)
+            csv = df_res.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 EXPORTAR INFORME CSV", data=csv, file_name=f"gema_tsunami_{temp}.csv")
+        else: st.info("No hay señales detectadas en este tsunami de datos.")
