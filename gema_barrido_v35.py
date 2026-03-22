@@ -4,53 +4,55 @@ import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 
-# 1. Configuración básica
 st.set_page_config(page_title="Gema Radar", layout="wide")
 st.title("🎯 Radar Barrido v35")
 
-# 2. Lista de activos (Simplificada para probar)
+# Lista de activos
 activos = ["AAPL", "MSFT", "NVDA", "TSLA", "BTC-USD", "ETH-USD", "GC=F", "ITX.MC", "SAN.MC"]
 
-# 3. Función de análisis
 def analizar(ticker):
     try:
-        # Descarga datos semanales
+        # Descarga
         df = yf.download(ticker, period="1y", interval="1wk", progress=False)
-        if df.empty: return None
+        if df is None or len(df) < 10:
+            return "Sin datos", 0
         
-        # Limpieza de columnas (Evita el error de yfinance)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-            
-        # Cálculo de indicadores
-        df['MACD'] = ta.macd(df['Close'])['MACD_12_26_9']
-        df['K'] = ta.stoch(df['High'], df['Low'], df['Close'])['STOCHk_14_3_3']
+        # Limpieza para nuevas versiones de pandas/yfinance
+        df.columns = [col[0] if isinstance(col, tuple) else col for col in df.columns]
         
-        # Lógica de Barrido (Engaño)
+        # Indicadores
+        macd_data = ta.macd(df['Close'])
+        df['MACD'] = macd_data['MACD_12_26_9']
+        stoch_data = ta.stoch(df['High'], df['Low'], df['Close'])
+        df['K'] = stoch_data['STOCHk_14_3_3']
+        
+        # Lógica
         curr = df.iloc[-1]
         prev = df.iloc[-2]
         mid_prev = (prev['High'] + prev['Low']) / 2
         
-        # Detectar señal
+        res = "Nada"
         if curr['Low'] < prev['Low'] and curr['Close'] > mid_prev:
-            return "ALCISTA 🟢", round(curr['K'], 1)
-        if curr['High'] > prev['High'] and curr['Close'] < mid_prev:
-            return "BAJISTA 🔴", round(curr['K'], 1)
+            res = "ALCISTA 🟢"
+        elif curr['High'] > prev['High'] and curr['Close'] < mid_prev:
+            res = "BAJISTA 🔴"
             
-        return None, round(curr['K'], 1)
+        return res, round(float(curr['K']), 1)
     except Exception as e:
-        return f"Error: {e}", 0
+        return f"Error", 0
 
-# 4. Interfaz
 if st.button("🚀 LANZAR ESCÁNER"):
     resultados = []
     for t in activos:
         st.write(f"Analizando {t}...")
-        senal, stoch = analizar(t)
-        if senal:
+        # Aquí estaba el fallo, ahora está protegido:
+        resultado_analisis = analizar(t)
+        senal, stoch = resultado_analisis
+        
+        if senal != "Nada" and senal != "Error" and senal != "Sin datos":
             resultados.append({"Ticker": t, "Señal": senal, "Estocástico": stoch})
     
     if resultados:
         st.table(resultados)
     else:
-        st.success("Escaneo terminado. Sin señales claras ahora.")
+        st.info("Escaneo terminado. No hay señales de barrido en estos activos hoy.")
