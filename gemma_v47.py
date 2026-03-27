@@ -6,7 +6,7 @@ import concurrent.futures
 import time
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="GEMA v52 ULTIMATE SNIPER", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="GEMA v55 NISON SNIPER", page_icon="🦅", layout="wide")
 
 # --- ESTILOS VISUALES (Tablas Blancas y Modo Guerra) ---
 st.markdown("""
@@ -64,7 +64,7 @@ universos = {
 }
 
 # ==============================================================================
-# 2. INTELIGENCIA SNIPER (FUSIÓN VELA ENGAÑO + FILTROS)
+# 2. MOTOR DE ANÁLISIS (LÓGICA NISON SNIPER)
 # ==============================================================================
 def analizar(ticker, interval, strategy):
     try:
@@ -79,30 +79,36 @@ def analizar(ticker, interval, strategy):
         stoch = ta.stoch(df['High'], df['Low'], df['Close'])
         df['K'] = stoch['STOCHk_14_3_3']
 
-        curr = df.iloc[-1]
-        prev = df.iloc[-2]
-        mid_p = (prev['High'] + prev['Low']) / 2
-
-        if strategy == "Oportunidades Premium (Sniper)":
-            # TRIPLE CONFLUENCIA: Vela Engaño + Estocástico Agotado + MACD a favor
-            es_barrido_buy = (curr['Low'] < prev['Low']) and (curr['Close'] > mid_p)
-            es_barrido_sell = (curr['High'] > prev['High']) and (curr['Close'] < mid_p)
-
-            # COMPRA
-            if es_barrido_buy and curr['K'] < 25 and curr['MACD'] > curr['Signal']:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-buy'>🚀 SNIPER BUY PREMIUM</span>", "Velas": "Actual", "MACD": "🟢 OK", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
+        for i in range(1, 6):
+            c = df.iloc[-i]      # Vela actual
+            p = df.iloc[-(i+1)]  # Vela anterior
             
-            # VENTA
-            if es_barrido_sell and curr['K'] > 75 and curr['MACD'] < curr['Signal']:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-sell'>💀 SNIPER SELL PREMIUM</span>", "Velas": "Actual", "MACD": "🔴 OK", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
+            # --- LÓGICA DE VELAS JAPONESAS (Libro Nison) ---
+            # El "Cuerpo" es el espacio entre Open y Close
+            mid_cuerpo_p = (p['Open'] + p['Close']) / 2
+            
+            # 🟢 ALCISTA: Martillo / Envolvente / Piercing
+            # 1. Barrido: Mínimo actual < Mínimo anterior
+            # 2. Nison: Cierre actual > Mitad del cuerpo anterior
+            es_nison_alcista = (c['Low'] < p['Low']) and (c['Close'] > mid_cuerpo_p) and (c['Close'] > c['Open'])
 
-        elif strategy == "Velas de Cambio (Barrido Simple)":
-            for i in range(1, 9):
-                c, p = df.iloc[-i], df.iloc[-(i+1)]
-                mp = (p['High'] + p['Low']) / 2
-                if c['Low'] < p['Low'] and c['Close'] > mp:
+            # 🔴 BAJISTA: Estrella Fugaz / Nube Oscura
+            # 1. Barrido: Máximo actual > Máximo anterior
+            # 2. Nison: Cierre actual < Mitad del cuerpo anterior
+            es_nison_bajista = (c['High'] > p['High']) and (c['Close'] < mid_cuerpo_p) and (c['Close'] < c['Open'])
+
+            if strategy == "Oportunidades Premium (Sniper)":
+                # Triple confluencia: Patrón Nison + Estocástico Agotado + MACD a favor
+                if es_nison_alcista and c['K'] < 30 and c['MACD'] > c['Signal']:
+                    return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-buy'>🚀 SNIPER BUY PREMIUM</span>", "Velas": f"Hace {i-1}", "MACD": "🟢 OK", "Stoch": round(c['K'],1), "Precio": round(float(c['Close']), 2)}
+                
+                if es_nison_bajista and c['K'] > 70 and c['MACD'] < c['Signal']:
+                    return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-sell'>💀 SNIPER SELL PREMIUM</span>", "Velas": f"Hace {i-1}", "MACD": "🔴 OK", "Stoch": round(c['K'],1), "Precio": round(float(c['Close']), 2)}
+
+            elif strategy == "Velas de Cambio (Barrido Simple)":
+                if es_nison_alcista:
                     return {"Ticker": f"**{ticker}**", "Señal": "<span class='sig-up'>ALCISTA 🟢</span>", "Velas": f"Hace {i-1}", "Stoch": round(c['K'],1), "Precio": round(float(c['Close']), 2)}
-                if c['High'] > p['High'] and c['Close'] < mp:
+                if es_nison_bajista:
                     return {"Ticker": f"**{ticker}**", "Señal": "<span class='sig-down'>BAJISTA 🔴</span>", "Velas": f"Hace {i-1}", "Stoch": round(c['K'],1), "Precio": round(float(c['Close']), 2)}
 
         return None
@@ -111,8 +117,8 @@ def analizar(ticker, interval, strategy):
 # ==============================================================================
 # 3. INTERFAZ
 # ==============================================================================
-st.title("🦅 GEMA FUSIÓN v52 SNIPER")
-st.caption("TRIPLE FILTRO: BARRIDO + ESTOCÁSTICO + MACD | LISTAS COMPLETAS")
+st.title("🦅 GEMA FUSIÓN v55 NISON")
+st.caption("TRIPLE FILTRO: BARRIDO + CIERRE NISON (50% CUERPO) + MACD")
 
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -126,7 +132,7 @@ with c3:
 
 st.markdown(f"📡 **OBJETIVOS IDENTIFICADOS:** {len(activos)} activos en lista.")
 
-if st.button("🔥 LANZAR BARRIDO TOTAL"):
+if st.button("🔥 LANZAR BARRIDO NISON"):
     encontrados = []
     prog = st.progress(0)
     status = st.empty()
@@ -140,16 +146,19 @@ if st.button("🔥 LANZAR BARRIDO TOTAL"):
             if res: encontrados.append(res)
             prog.progress((i+1)/len(activos))
 
-    status.markdown(f"### ✅ OPERACIÓN FINALIZADA. {len(encontrados)} OPORTUNIDADES.")
+    status.markdown(f"### ✅ BARRIDO COMPLETADO.")
 
     if encontrados:
         st.balloons()
         df_res = pd.DataFrame(encontrados)
         st.write(df_res.to_html(escape=False, index=False), unsafe_allow_html=True)
-        st.download_button("📥 DESCARGAR CSV", df_res.to_csv(index=False).encode('utf-8'), f"gema_v52_{idx}.csv")
+        st.download_button("📥 DESCARGAR CSV", df_res.to_csv(index=False).encode('utf-8'), f"gema_v55_{idx}.csv")
     else:
-        st.info("Sin señales detectadas bajo estos filtros.")
+        st.info("Sin señales detectadas bajo los criterios de Nison hoy.")
 
 st.sidebar.divider()
-st.sidebar.info("Criterio Sniper: Vela de Engaño + Estocástico <25/>75 + MACD cruzado a favor.")
+st.sidebar.info("Lógica Nison: Barrido + Cierre > 50% Cuerpo Anterior + Filtros Sniper.")
+
+
+
 
