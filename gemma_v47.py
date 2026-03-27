@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -5,56 +6,64 @@ import pandas_ta as ta
 import concurrent.futures
 import time
 
-# --- CONFIGURACIÓN DE PÁGINA (Estilo v22) ---
-st.set_page_config(page_title="GEMA FUSIÓN v48", page_icon="🦅", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="GEMA v49 WHITE EDITION", page_icon="🦅", layout="wide")
 
-# --- ESTILOS VISUALES TOTALES (Copiado de tu v22) ---
+# --- ESTILOS VISUALES (Fondo oscuro con TABLAS BLANCAS) ---
 st.markdown("""
     <style>
-    /* Fondo oscuro total */
     .stApp { background-color: #0e1117; color: #c9d1d9; }
     h1, h2, h3 { color: #00e676 !important; font-family: 'Courier New', monospace; }
     
-    /* Botones estilo Modo Guerra */
+    /* Botones Estilo Macdelorean */
     div.stButton > button { 
-        width: 100%; border: 1px solid #00e676; background-color: #161b22; 
+        width: 100%; border: 2px solid #00e676; background-color: #161b22; 
         color: #00e676; font-weight: bold; font-size: 18px; padding: 12px;
-        border-radius: 6px;
+        border-radius: 8px;
     }
-    div.stButton > button:hover { background-color: #00e676; color: #000; }
     
-    /* Barra de progreso verde neón */
-    .stProgress > div > div > div > div { background-color: #00e676; }
+    /* TABLA BLANCA PROFESIONAL (Como el robot antiguo) */
+    .rendered_html table {
+        background-color: white !important;
+        color: #1c1c1c !important;
+        border-radius: 8px;
+        overflow: hidden;
+        width: 100%;
+    }
+    .rendered_html th {
+        background-color: #f0f2f6 !important;
+        color: #1c1c1c !important;
+        font-weight: bold;
+        padding: 12px !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    .rendered_html td {
+        color: #1c1c1c !important;
+        padding: 10px !important;
+        border: 1px solid #dee2e6 !important;
+    }
     
-    /* Diseño de Tabla Limpia (Fusión v22) */
-    .rendered_html table { border-collapse: collapse; width: 100%; color: #c9d1d9; border: 1px solid #30363d; }
-    .rendered_html th { background-color: #161b22; color: #00e676; text-align: left; padding: 10px; border: 1px solid #30363d; }
-    .rendered_html td { padding: 10px; text-align: left; border-bottom: 1px solid #30363d; }
-    .rendered_html tr:hover { background-color: #1c2128; }
-    
-    /* Colores de Señales */
-    .signal-up { color: #00ff88; font-weight: bold; }
-    .signal-down { color: #ff3344; font-weight: bold; }
-    .premium-sell { color: #ff3344; font-weight: bold; text-transform: uppercase;}
-    .premium-buy { color: #00ff88; font-weight: bold; text-transform: uppercase;}
+    /* Colores de Señales sobre fondo blanco */
+    .sig-up { color: #1a7f37; font-weight: bold; }
+    .sig-down { color: #d1242f; font-weight: bold; }
+    .prem-buy { color: #1a7f37; font-weight: 800; }
+    .prem-sell { color: #d1242f; font-weight: 800; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==============================================================================
-# 1. EL GRAN ARSENAL (+500 ACTIVOS REALES)
+# 1. EL GRAN EJÉRCITO (TODOS LOS TICKERS POSIBLES)
 # ==============================================================================
-# (Mantengo las listas completas de la v47 para no perder activos)
 universos = {
-    "🇺🇸 NASDAQ 100": ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST", "CSCO", "TMUS", "ADBE", "NFLX", "QCOM", "TXN", "AMD", "INTU", "INTC", "AMAT", "ISRG", "BKNG", "HON", "MDLZ", "VRTX", "ADP", "ADI", "LRCX", "REGN", "PANW", "SNPS", "MU", "KLAC", "CDNS", "MELI", "MAR", "ORLY", "CTAS", "ASML", "PYPL", "MNST", "FTNT", "KDP", "LULU", "WDAY", "ADSK", "NXPI", "EXC", "MCHP", "KHC", "AEP", "CPRT", "SBUX", "PAYX", "IDXX", "ROST", "MRVL", "ODFL", "AZN", "GILD", "BKR", "BIIB", "TEAM", "MSTR", "PDD", "EBAY", "JD", "LCID", "DDOG", "ZS", "CRWD", "TEAM", "LCID", "RIVN", "PDD", "JD", "BIDU", "SIRI", "ZM", "EBAY", "ALGN", "ENPH"],
-    "🇺🇸 S&P 500 (TOP SECTOR)": ["JPM", "V", "MA", "PG", "HD", "CVX", "KO", "DIS", "WMT", "UNH", "CAT", "BA", "XOM", "BAC", "LLY", "ABBV", "PFE", "TMO", "MCD", "NKE", "LIN", "PM", "GS", "HON", "ORCL", "ACN", "RTX", "UPS", "GE", "BRK-B", "UBER", "ABNB", "PLTR", "SOFI", "AFRM", "HOOD", "DKNG", "CUBE"],
+    "🇺🇸 S&P 500 (FULL SECTOR)": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "BRK-B", "TSLA", "UNH", "LLY", "JPM", "XOM", "V", "MA", "PG", "AVGO", "HD", "CVX", "ABBV", "KO", "MRK", "PEP", "COST", "TMO", "MCD", "ADBE", "WMT", "CSCO", "CRM", "PFE", "BAC", "ACN", "ABT", "LIN", "NFLX", "ORCL", "AMD", "TXN", "PM", "INTC", "VZ", "HON", "DIS", "T", "UPS", "NEE", "BMY", "LOW", "SPGI", "RTX", "CAT", "AMGN", "GE", "IBM", "UNP", "GS", "INTU", "DE", "PLD", "AXP", "MS", "ELV", "GILD", "SYK", "AMT", "LMT", "BLK", "MDLZ", "CVS", "BKNG", "ISRG", "ADI", "ADP", "TJX", "MMC", "VRTX", "CI", "REGN", "ZTS", "BSX", "CUBE", "BKR"],
+    "🇺🇸 NASDAQ 100": ["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "TSLA", "AVGO", "COST", "ADBE", "NFLX", "AMD", "QCOM", "TXN", "INTU", "AMAT", "ISRG", "BKNG", "HON", "MU", "ADI", "ADP", "LRCX", "VRTX", "REGN", "PANW", "SNPS", "KLAC", "CDNS", "MELI", "MAR", "ORLY", "CTAS", "ASML", "CSX", "PYPL", "MNST", "FTNT", "KDP", "LULU", "WDAY", "ADSK", "NXPI", "EXC", "PCAR", "ROST", "PAYX", "EA", "CTSH", "FAST", "DLTR", "VRSK", "ODFL", "BKR", "CEG", "DDOG", "ZS", "CRWD", "TEAM", "MSTR", "PDD", "EBAY", "JD", "BIDU", "SIRI", "ZM", "ALGN", "ENPH"],
     "🇪🇸 IBEX 35": ["ITX.MC", "SAN.MC", "BBVA.MC", "IBE.MC", "TEF.MC", "REP.MC", "CABK.MC", "ACS.MC", "FER.MC", "AENA.MC", "AMS.MC", "ANA.MC", "BKT.MC", "CLNX.MC", "ELE.MC", "ENG.MC", "FDR.MC", "GRF.MC", "IAG.MC", "IDR.MC", "MAP.MC", "MRL.MC", "ROVI.MC", "SCYR.MC", "SLR.MC", "UNI.MC", "VIS.MC", "MEL.MC", "SAB.MC", "LOG.MC", "COL.MC"],
-    "🇪🇺 EUROPA (DAX/CAC/MIB)": ["SAP.DE", "SIE.DE", "ALV.DE", "DTE.DE", "AIR.DE", "MBG.DE", "BMW.DE", "BAS.DE", "VOW3.DE", "MC.PA", "OR.PA", "RMS.PA", "TTE.PA", "SAN.PA", "AIR.PA", "SU.PA", "BNP.PA", "RACE.MI", "ENI.MI", "ISP.MI", "UCG.MI", "STLAM.MI", "G.MI", "ENEL.MI"],
-    "🚜 RUSSELL 2000 (LÍQUIDOS)": ["IWM", "TNA", "URTY", "SMH", "SOXX", "XBI", "KWEB", "EWZ", "EEM", "GDX", "GDXJ", "SIL", "TAN", "ICLN", "PBW", "MSTR", "ELF", "CROX", "CVNA", "UPST", "AI", "IONQ", "JOBY", "QS", "SPCE", "OPEN", "NKLA", "SAVA", "GME", "AMC", "TLRY", "OXY", "HAL", "SLB", "APA", "DVN", "MRO", "HES", "COP", "EOG", "PXD", "FANG", "VLO", "MPC", "PSX", "KMI", "WMB", "ET", "EPD", "MPLX", "PAA", "VNOM", "OIH", "XOP", "AMLP", "USO", "UNG", "BOIL", "KOLD", "GUSH", "DRIP", "ERX", "ERY", "NUGT", "DUST", "JNUG", "JDST", "LIT", "URA", "REMX", "COPX", "SLX", "FAN", "GRID", "BATT", "DRIV", "KARS", "HAIL", "IDRV", "VCAR", "FUV", "SOLO", "WKHS", "RIDE", "GOEV", "HYLN", "XL", "UWMC", "RKT", "LDI", "PFSI", "GHIV", "IVR", "MFA", "NYMT", "MITT", "TWO", "ARR", "CIM", "EARN", "ORC", "AGNC", "NLY", "STWD", "BXMT", "ABR", "RC", "GPMT", "KREF", "LADR", "TRTX", "ACRE", "ARI", "XAN", "CLNC", "HMG", "HASI", "SAFE", "STAR", "GTY", "NNN", "O", "WPC", "STAG", "ADC", "EPR", "VICI", "GLPI", "MGP", "IRT", "MAA", "CPT", "ESS", "AVB", "EQR", "UDR", "AIV", "INVH", "AMH", "TCON", "UMH", "SUI", "ELS", "CUBE", "EXR", "PSA", "LSI", "NSA", "COLD", "DLR", "EQIX", "COR", "CONE", "QTS", "AMT", "CCI", "SBAC", "UNIT", "LAMR", "OUT", "WY", "PCH", "RYN", "CTT", "LAND", "FPI", "AGM"],
-    "₿ CRIPTOS / COMMOS": ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD", "ADA-USD", "DOGE-USD", "GC=F", "SI=F", "CL=F", "HG=F"]
+    "🇪🇺 EUROPA (CAC/DAX/MIB)": ["MC.PA", "OR.PA", "RMS.PA", "TTE.PA", "SAN.PA", "AIR.PA", "BNP.PA", "SU.PA", "SAP.DE", "SIE.DE", "ALV.DE", "DTE.DE", "AIR.DE", "MBG.DE", "BMW.DE", "BAS.DE", "VOW3.DE", "RACE.MI", "ENI.MI", "ISP.MI", "UCG.MI", "STLAM.MI", "G.MI", "ENEL.MI", "PRY.MI"],
+    "🚜 RUSSELL 2000 (SMALL CAPS)": ["IWM", "TNA", "URTY", "SMH", "SOXX", "XBI", "KWEB", "EWZ", "GDX", "MSTR", "ELF", "CROX", "CVNA", "UPST", "AI", "IONQ", "JOBY", "QS", "SPCE", "OPEN", "GME", "AMC", "TLRY", "OXY", "HAL", "SLB", "APA", "DVN", "MRO", "HES", "COP", "EOG", "VLO", "MPC", "PSX", "KMI", "WMB", "ET", "EPD", "MPLX", "PAA", "VNOM", "OIH", "XOP", "USO", "UNG", "BOIL", "KOLD", "GUSH", "NUGT", "DUST", "JNUG", "LIT", "URA", "REMX", "COPX", "SLX", "FAN", "GRID", "BATT", "DRIV", "KARS", "HAIL", "IDRV", "VCAR", "UWMC", "RKT", "LDI", "PFSI", "GHIV", "IVR", "MFA", "NYMT", "MITT", "TWO", "ARR", "CIM", "EARN", "ORC", "AGNC", "NLY", "STWD", "BXMT", "ABR", "RC", "GPMT", "KREF", "LADR", "TRTX", "ACRE", "ARI", "XAN", "CLNC", "HMG", "HASI", "SAFE", "STAR", "GTY", "NNN", "O", "WPC", "STAG", "ADC", "EPR", "VICI", "GLPI", "MGP", "IRT", "MAA", "CPT", "ESS", "AVB", "EQR", "UDR", "AIV", "INVH", "AMH", "TCON", "UMH", "SUI", "ELS", "CUBE", "EXR", "PSA", "LSI", "NSA", "COLD", "DLR", "EQIX", "COR", "CONE", "QTS", "AMT", "CCI", "SBAC", "UNIT", "LAMR", "OUT", "WY", "PCH", "RYN", "CTT", "LAND", "FPI", "AGM"]
 }
 
 # ==============================================================================
-# 2. MOTOR DE ESTRATEGIAS
+# 2. MOTOR DE ANÁLISIS
 # ==============================================================================
 def analizar(ticker, interval, strategy):
     try:
@@ -67,99 +76,72 @@ def analizar(ticker, interval, strategy):
         stoch = ta.stoch(df['High'], df['Low'], df['Close'])
         df['K'] = stoch['STOCHk_14_3_3']
 
-        if strategy == "Velas de Cambio":
-            # Usamos el estilo v22 de círculos
-            for i in range(1, 9):
-                curr, prev = df.iloc[-i], df.iloc[-(i+1)]
-                mid_prev = (prev['High'] + prev['Low']) / 2
-                sig = ""
-                if curr['Low'] < prev['Low'] and curr['Close'] > mid_prev and curr['K'] < 30: 
-                    sig = "<span class='signal-up'>ALCISTA 🟢</span>"
-                elif curr['High'] > prev['High'] and curr['Close'] < mid_prev and curr['K'] > 70: 
-                    sig = "<span class='signal-down'>BAJISTA 🔴</span>"
-                if sig:
-                    return {"Ticker": f"**{ticker}**", "Señal": sig, "Velas": f"Hace {i-1}", "MACD": "Alcista" if float(curr['MACD']) > 0 else "Bajista", "Precio": round(float(curr['Close']), 2)}
-
-        elif strategy == "Oportunidades Premium (Fusión)":
-            # Recreamos la lógica Premium de la v22
-            curr = df.iloc[-1]
-            prev = df.iloc[-2]
-            
-            # Ejemplo de lógica Premium (adaptada para que salga CUBE si cumple)
-            m_bull = (curr['MACD'] > 0) and (curr['K'] < 25) # Compra
-            m_bear = (curr['MACD'] < 0) and (curr['K'] > 75) # Venta
-
+        curr = df.iloc[-1]
+        
+        if strategy == "Oportunidades Premium (Fusión)":
+            # Lógica v22 para detectar señales tipo CUBE
+            m_bull = (curr['MACD'] > 0) and (curr['K'] < 30)
+            m_bear = (curr['MACD'] < 0) and (curr['K'] > 70)
             if m_bull:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='premium-buy'>🚀 BUY PREMIUM</span>", "Velas": "Actual", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
+                return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-buy'>🚀 BUY PREMIUM</span>", "Velas": "Actual", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
             if m_bear:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='premium-sell'>💀 SELL PREMIUM</span>", "Velas": "Actual", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
+                return {"Ticker": f"**{ticker}**", "Señal": "<span class='prem-sell'>💀 SELL PREMIUM</span>", "Velas": "Actual", "Stoch": round(curr['K'],1), "Precio": round(float(curr['Close']), 2)}
 
-        elif strategy == "Divergencias MACD":
-            curr, prev = df.iloc[-1], df.iloc[-5] 
-            if curr['Low'] < prev['Low'] and curr['MACD'] > prev['MACD'] and curr['K'] < 40:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='signal-up'>DIV. ALCISTA 📈</span>", "Velas": "Actual", "Precio": round(float(curr['Close']), 2)}
-            if curr['High'] > prev['High'] and curr['MACD'] < prev['MACD'] and curr['K'] > 60:
-                return {"Ticker": f"**{ticker}**", "Señal": "<span class='signal-down'>DIV. BAJISTA 📉</span>", "Velas": "Actual", "Precio": round(float(curr['Close']), 2)}
+        elif strategy == "Velas de Cambio (Barrido)":
+            for i in range(1, 9):
+                c, p = df.iloc[-i], df.iloc[-(i+1)]
+                mid = (p['High'] + p['Low']) / 2
+                sig = ""
+                if c['Low'] < p['Low'] and c['Close'] > mid and c['K'] < 30: sig = "<span class='sig-up'>ALCISTA 🟢</span>"
+                elif c['High'] > p['High'] and c['Close'] < mid and c['K'] > 70: sig = "<span class='sig-down'>BAJISTA 🔴</span>"
+                if sig:
+                    return {"Ticker": f"**{ticker}**", "Señal": sig, "Velas": f"Hace {i-1}", "Stoch": round(c['K'],1), "Precio": round(float(c['Close']), 2)}
 
         return None
     except: return None
 
 # ==============================================================================
-# 3. INTERFAZ PROFESIONAL (Estilo v22)
+# 3. INTERFAZ
 # ==============================================================================
-st.title("🦅 GEMA FUSIÓN PRO v48")
-st.caption("SISTEMA DE INTELIGENCIA ESTRUCTURAL | CLEAN CUT")
+st.title("🦅 GEMA FUSIÓN v49 PRO")
+st.caption("CENTER COMMAND | INDUSTRIAL ASSETS SCANNER")
 
-# Panel de Control
-col_idx, col_temp, col_strat = st.columns(3)
-with col_idx:
-    indice_sel = st.selectbox("📁 Índice:", list(universos.keys()))
-    activos = universos[indice_sel]
-with col_temp:
+c1, c2, c3 = st.columns(3)
+with c1:
+    idx = st.selectbox("📁 Índice Escogido:", list(universos.keys()))
+    activos = universos[idx]
+with c2:
     temp = st.radio("⏱️ Temporalidad:", ["Semanal", "Mensual"], horizontal=True)
-    intervalo = "1wk" if temp == "Semanal" else "1mo"
-with col_strat:
-    estrategia = st.selectbox("🧠 Estrategia:", ["Oportunidades Premium (Fusión)", "Velas de Cambio", "Divergencias MACD"])
+    inter = "1wk" if temp == "Semanal" else "1mo"
+with c3:
+    estrat = st.selectbox("🧠 Inteligencia:", ["Oportunidades Premium (Fusión)", "Velas de Cambio (Barrido)"])
 
-# Marcador de Objetivos (Estilo v22)
-st.markdown(f"### 📡 CONECTANDO CON {len(activos)} OBJETIVOS DEL {indice_sel.upper()}...")
+st.markdown(f"📡 **OBJETIVOS CARGADOS:** {len(activos)} activos en radar.")
 
-if st.button("🔥 LANZAR RADAR"):
+if st.button("🔥 LANZAR RADAR DE ALTA INTENSIDAD"):
     encontrados = []
     prog = st.progress(0)
+    status = st.empty()
     
-    # Contador dinámico en vivo
-    status_text = st.empty()
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-        future_to_ticker = {executor.submit(analizar, t, intervalo, estrategia): t for t in activos}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_ticker = {executor.submit(analizar, t, inter, estrat): t for t in activos}
         for i, future in enumerate(concurrent.futures.as_completed(future_to_ticker)):
             t = future_to_ticker[future]
-            
-            # Actualizar contador en vivo
-            status_text.markdown(f"⏳ **Analizando objetivo {i+1} de {len(activos)}:** `{t}`...")
-            
+            status.markdown(f"⏳ **Escaneando {i+1} de {len(activos)}:** `{t}`")
             res = future.result()
             if res: encontrados.append(res)
             prog.progress((i+1)/len(activos))
             
-    status_text.markdown(f"### ✅ ESCANEO COMPLETADO. DETECTADOS {len(encontrados)} OBJETIVOS.")
+    status.markdown(f"### ✅ BARRIDO COMPLETADO. SE HAN DETECTADO {len(encontrados)} OPORTUNIDADES.")
     
     if encontrados:
         st.balloons()
         df_res = pd.DataFrame(encontrados)
-        
-        # Visualización Final (Tabla Rediseñada v22)
+        # Mostramos la tabla con fondo blanco usando HTML
         st.write(df_res.to_html(escape=False, index=False), unsafe_allow_html=True)
-        
-        csv = df_res.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 DESCARGAR INFORME CSV", data=csv, file_name=f"gema_fusion_{indice_sel}.csv")
+        st.download_button("📥 EXPORTAR CSV", df_res.to_csv(index=False).encode('utf-8'), f"gema_{idx}.csv")
     else:
-        st.warning("El mercado no ofrece entradas claras bajo esta estrategia hoy. Mantener disciplina.")
+        st.info("Sin señales claras. Mantener liquidez.")
 
-# Sidebar Info
 st.sidebar.divider()
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/2/29/DeLorean_DMC-12_on_highway_%28cropped%29.jpg")
-st.sidebar.markdown("---")
-st.sidebar.write("**GEMA FUSIÓN v48**")
-st.sidebar.info("Combina la búsqueda de Velas de Engaño y Divergencias en +500 activos con la estética y contador en vivo de la v22.")
+st.sidebar.info("Modo de tabla blanca activado. Motor de 20 hilos para escaneo masivo de índices completos.")
