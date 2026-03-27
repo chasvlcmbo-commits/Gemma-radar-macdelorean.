@@ -5,7 +5,7 @@ import pandas_ta as ta
 import concurrent.futures
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="GEMA ARCHITECT v47", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="GEMA ARCHITECT v47", page_icon="🦅", layout="wide") 
 
 # --- ESTILOS VISUALES (ADN Macdelorean v22) ---
 st.markdown("""
