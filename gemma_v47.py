@@ -7,7 +7,7 @@ import time
 
 # --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(
-    page_title="Macdelorean Radar v23",
+    page_title="Macdelorean Radar v24",
     page_icon="🦅",
     layout="wide"
 )
@@ -18,164 +18,296 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
 
     .stApp { background-color: #080c10; color: #c9d1d9; }
+    h1, h2, h3 { color: #00e676 !important; font-family: 'Orbitron', monospace !important; letter-spacing: 2px; }
 
-    h1, h2, h3 {
-        color: #00e676 !important;
-        font-family: 'Orbitron', monospace !important;
-        letter-spacing: 2px;
-    }
-
-    /* Botón principal */
     div.stButton > button {
-        width: 100%;
-        border: 2px solid #00e676;
+        width: 100%; border: 2px solid #00e676;
         background: linear-gradient(135deg, #0a1628 0%, #0d2137 100%);
-        color: #00e676;
-        font-weight: bold;
-        font-size: 18px;
-        padding: 14px;
-        font-family: 'Orbitron', monospace;
-        letter-spacing: 3px;
-        transition: all 0.3s;
-        text-transform: uppercase;
+        color: #00e676; font-weight: bold; font-size: 18px; padding: 14px;
+        font-family: 'Orbitron', monospace; letter-spacing: 3px;
+        transition: all 0.3s; text-transform: uppercase;
     }
     div.stButton > button:hover {
         background: linear-gradient(135deg, #00e676 0%, #00bcd4 100%);
-        color: #000000;
-        box-shadow: 0 0 20px #00e676aa;
+        color: #000000; box-shadow: 0 0 20px #00e676aa;
     }
-
-    /* Checkboxes */
-    .stCheckbox label { color: #00e676 !important; font-family: 'Share Tech Mono', monospace; font-size: 14px; }
-
-    /* Tabs */
+    .stCheckbox label { color: #00e676 !important; font-family: 'Share Tech Mono', monospace; font-size: 13px; }
     .stTabs [data-baseweb="tab-list"] { background-color: #0d1117; border-bottom: 1px solid #00e676; }
-    .stTabs [data-baseweb="tab"] { color: #8b949e; font-family: 'Orbitron', monospace; font-size: 12px; }
+    .stTabs [data-baseweb="tab"] { color: #8b949e; font-family: 'Orbitron', monospace; font-size: 11px; }
     .stTabs [aria-selected="true"] { color: #00e676 !important; border-bottom: 2px solid #00e676; }
-
-    /* Progress bar */
     .stProgress > div > div > div > div { background: linear-gradient(90deg, #00e676, #00bcd4); }
-
-    /* Métricas */
     div[data-testid="stMetricValue"] { font-size: 1.4rem; color: #ffffff; font-family: 'Share Tech Mono', monospace; }
     div[data-testid="stMetricLabel"] { color: #8b949e; font-family: 'Share Tech Mono', monospace; }
-
-    /* Dataframe */
     .stDataFrame { border: 1px solid #1e3a2f; }
-
-    /* Info/warning/success */
-    .stAlert { border-left: 4px solid #00e676; background-color: #0d1117; }
-
-    /* Sidebar */
     section[data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #1e3a2f; }
-    section[data-testid="stSidebar"] h2 { font-size: 14px !important; }
-
-    /* Divider */
     hr { border-color: #1e3a2f; }
-
-    /* Expander */
     .streamlit-expanderHeader { color: #00e676 !important; font-family: 'Share Tech Mono', monospace; }
     </style>
 """, unsafe_allow_html=True)
 
 
 # ==============================================================================
-# 1. UNIVERSO DE ACTIVOS ORGANIZADO POR ÍNDICE
+# 1. UNIVERSO MASIVO DE ACTIVOS — ~1400 TICKERS
 # ==============================================================================
 
 UNIVERSO = {
+
+    # ──────────────────────────────────────────────
     "🇺🇸 DOW JONES 30": [
-        "MMM", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "DIS",
-        "DOW", "GS", "HD", "HON", "IBM", "INTC", "JNJ", "JPM", "MCD", "MRK",
-        "MSFT", "NKE", "PG", "CRM", "TRV", "UNH", "VZ", "V", "WMT", "AMZN"
+        "MMM","AXP","AMGN","AAPL","BA","CAT","CVX","CSCO","KO","DIS",
+        "DOW","GS","HD","HON","IBM","INTC","JNJ","JPM","MCD","MRK",
+        "MSFT","NKE","PG","CRM","TRV","UNH","VZ","V","WMT","AMZN"
     ],
 
-    "🚀 NASDAQ 100": [
-        "NVDA", "META", "TSLA", "AVGO", "PEP", "COST", "TMUS", "ADBE", "TXN",
-        "CMCSA", "AMD", "NFLX", "QCOM", "BKNG", "ADI", "MDLZ", "ADP", "ISRG",
-        "REGN", "VRTX", "PYPL", "LRCX", "FISV", "CSX", "MU", "MELI", "AMAT",
-        "PANW", "SNPS", "CDNS", "ORLY", "ASML", "KLAC", "MAR", "FTNT", "CHTR",
-        "CTAS", "NXPI", "DXCM", "LULU", "PCAR", "BIIB", "IDXX", "MCHP", "ROST",
-        "PAYX", "EA", "CTSH", "FAST", "DLTR", "WDAY", "VRSK", "ODFL", "BKR",
-        "CEG", "DDOG", "ZS", "CRWD", "TEAM", "ON", "GEHC", "AZN", "TTWO",
-        "MNST", "SBUX", "PDD", "JD", "BIDU", "ZM", "EBAY", "ALGN", "ENPH"
+    # ──────────────────────────────────────────────
+    "🚀 NASDAQ 100 COMPLETO": [
+        "AAPL","MSFT","NVDA","AMZN","META","TSLA","GOOGL","GOOG","AVGO","COST",
+        "NFLX","TMUS","AMD","CSCO","ADBE","PEP","AZN","QCOM","TXN","ISRG",
+        "INTU","AMAT","HON","CMCSA","BKNG","VRTX","REGN","MU","PANW","ADI",
+        "LRCX","KLAC","SNPS","CDNS","MELI","ASML","MDLZ","GILD","CTAS","ADP",
+        "FTNT","MAR","ABNB","MCHP","ORLY","KDP","DXCM","WDAY","PAYX","MNST",
+        "ROST","BIIB","IDXX","PCAR","EA","FAST","CTSH","ODFL","VRSK","CEG",
+        "DDOG","ZS","CRWD","TEAM","NXPI","EXC","AEP","XEL","ILMN","ON",
+        "GEHC","TTWO","SBUX","PDD","ALGN","ENPH","WBD","FANG","DLTR","SIRI",
+        "ZM","EBAY","PYPL","LCID","RIVN","HOOD","COIN","MARA","RIOT","LULU",
+        "CHTR","BKR","CSX","FISV","ANSS","CPRT","CSGP","DKNG","GFS","HTHT"
     ],
 
-    "📈 S&P 500 SELECT": [
-        "LLY", "XOM", "UNH", "MA", "BAC", "LIN", "DHR", "NEE", "PM", "RTX",
-        "GE", "UBER", "ABNB", "PLTR", "BRK-B", "SPGI", "BLK", "SCHW", "CB",
-        "CI", "MO", "DUK", "SO", "D", "EXC", "SRE", "AEP", "XEL", "ED",
-        "WEC", "ES", "ETR", "CNP", "CMS", "LNT", "PNW", "OGE", "NI", "EVRG",
-        "MDT", "ABT", "TMO", "BMY", "GILD", "AMGN", "SYK", "EW", "DXCM",
-        "ZBH", "BDX", "RMD", "HOLX", "PKI", "WAT", "IQV", "CTLT", "MTD",
-        "A", "BAX", "BSX", "COO", "HSIC", "ICE", "NDAQ", "CME", "CBOE",
-        "AON", "MMC", "AJG", "WTW", "HIG", "MET", "PRU", "GL", "LNC",
-        "UNM", "PFG", "TROW", "BEN", "IVZ", "AMG", "VRTS", "SEIC", "APAM"
+    # ──────────────────────────────────────────────
+    "📈 S&P 500 — FINANCIALS & INDUSTRIALS": [
+        "JPM","BAC","WFC","GS","MS","C","BK","USB","PNC","TFC",
+        "COF","AXP","DFS","SYF","ALLY","FITB","KEY","RF","HBAN","CFG",
+        "MTB","ZION","CMA","PBCT","FHN","SIVB","SBNY","WAL","EWBC","PACW",
+        "BLK","SCHW","TROW","IVZ","BEN","AMG","APAM","VRTS","SEIC","FDS",
+        "ICE","CME","CBOE","NDAQ","MKTX","VIRT","LPLA","RJF","SF","PIPR",
+        "MMC","AON","AJG","WTW","HIG","MET","PRU","AFL","ALL","TRV",
+        "CB","AIG","PGR","CINF","GL","LNC","UNM","PFG","AIZ","EG",
+        "GE","HON","MMM","CAT","DE","EMR","ETN","PH","ROK","AME",
+        "ITW","DOV","GGG","GNRC","XYL","REXNORD","FLS","IDEX","IR","TT",
+        "CARR","OTIS","RTX","LMT","NOC","GD","LHX","BAH","LDOS","SAIC"
     ],
 
-    "🇩🇪 DAX 40": [
-        "SAP.DE", "SIE.DE", "AIR.DE", "ALV.DE", "DTE.DE", "MBG.DE", "VOW3.DE",
-        "BMW.DE", "BAS.DE", "ADS.DE", "IFX.DE", "DHL.DE", "MUV2.DE", "DB1.DE",
-        "BEI.DE", "RWE.DE", "EOAN.DE", "SY1.DE", "BAYN.DE", "DTG.DE", "HEN3.DE",
-        "VNA.DE", "CON.DE", "PAH3.DE", "MTX.DE", "HEI.DE", "MRK.DE", "BNR.DE",
-        "HNR1.DE", "ZAL.DE", "FRE.DE", "FME.DE", "QIA.DE", "PUM.DE", "SHL.DE",
-        "ENR.DE", "EVT.DE", "1COV.DE", "SON22.DE", "SXS.DE"
+    # ──────────────────────────────────────────────
+    "📈 S&P 500 — HEALTHCARE & CONSUMER": [
+        "UNH","CVS","CI","HUM","CNC","MOH","ELV","WCG","OSH","ALHC",
+        "JNJ","PFE","ABT","MRK","LLY","BMY","GILD","AMGN","REGN","VRTX",
+        "BIIB","ALNY","MRNA","BNTX","SGEN","EXAS","ILMN","PACB","TDOC","ONEM",
+        "TMO","DHR","A","WAT","MTD","PKI","IQV","CTLT","CRL","MEDP",
+        "MDT","SYK","BSX","EW","DXCM","RMD","HOLX","ZBH","BDX","COO",
+        "AMZN","WMT","COST","TGT","HD","LOW","TJX","ROST","BURL","FIVE",
+        "MCD","SBUX","YUM","QSR","DPZ","CMG","WING","SHAK","JACK","DENN",
+        "NKE","LULU","VFC","PVH","HBI","UA","SKX","CROX","DECK","WWW",
+        "PG","KO","PEP","MDLZ","GIS","CPB","CAG","SJM","HRL","MKC",
+        "PM","MO","BTI","MNST","KDP","CELH","FIZZ","SAM","BF-B","TAP"
     ],
 
-    "🇪🇸 IBEX 35": [
-        "ITX.MC", "IBE.MC", "BBVA.MC", "SAN.MC", "CABK.MC", "TEF.MC", "ACS.MC",
-        "FER.MC", "AENA.MC", "AMS.MC", "REP.MC", "CLNX.MC", "IAG.MC", "ENG.MC",
-        "ANA.MC", "GRF.MC", "RED.MC", "MTS.MC", "ACX.MC", "BKT.MC", "MAP.MC",
-        "TL5.MC", "MEL.MC", "PHM.MC", "SAB.MC", "IDR.MC", "COL.MC", "LOG.MC",
-        "FDR.MC", "ROVI.MC", "SOL.MC", "UNI.MC", "VIS.MC", "ELE.MC", "CIE.MC"
+    # ──────────────────────────────────────────────
+    "📈 S&P 500 — ENERGY & UTILITIES": [
+        "XOM","CVX","COP","EOG","PXD","DVN","MRO","APA","HES","FANG",
+        "SLB","HAL","BKR","OIS","OIH","NOV","DRQ","HP","NE","PTEN",
+        "VLO","MPC","PSX","DK","PBF","HFC","CLMT","PARR","CALUMET","ALJ",
+        "KMI","WMB","ET","EPD","MPLX","PAA","TRGP","OKE","LNG","FLEX",
+        "DUK","SO","NEE","AEP","EXC","XEL","D","SRE","PEG","ED",
+        "WEC","ES","ETR","CNP","CMS","LNT","PNW","OGE","NI","EVRG",
+        "NRG","VST","CEG","AES","BEP","CWEN","AMPS","NOVA","RUN","SEDG",
+        "ENPH","FSLR","SPWR","CSIQ","JKS","DAQO","RUN","ARRY","NOVA","SHLS"
     ],
 
-    "🇫🇷 CAC 40": [
-        "MC.PA", "OR.PA", "RMS.PA", "TTE.PA", "SAN.PA", "AIR.PA", "SU.PA",
-        "BNP.PA", "SAF.PA", "EL.PA", "AXA.PA", "DG.PA", "KER.PA", "DSY.PA",
-        "STLAP.PA", "RI.PA", "CAP.PA", "GLE.PA", "ORA.PA", "BN.PA", "EN.PA",
-        "LR.PA", "ACA.PA", "CA.PA", "ML.PA", "VIE.PA", "SGO.PA", "HO.PA",
-        "ATO.PA", "PUB.PA", "WLN.PA", "URW.PA", "RNO.PA", "VIV.PA", "ENGI.PA",
-        "STM.PA", "TEP.PA", "BOL.PA", "ERF.PA", "AF.PA"
+    # ──────────────────────────────────────────────
+    "📈 S&P 500 — TECH & REITS": [
+        "AAPL","MSFT","NVDA","GOOGL","META","TSLA","AVGO","ORCL","IBM","QCOM",
+        "TXN","ADI","MCHP","LRCX","AMAT","KLAC","SNPS","CDNS","ANSS","EPAM",
+        "PAYC","PCTY","HUBS","DOMO","COUP","VEEV","OKTA","ZI","BOX","DBX",
+        "TWLO","BAND","EGHT","MSGM","CCCS","ALKT","JAMF","DOCU","SMAR","MNDY",
+        "AMT","CCI","SBAC","UNIT","LAMR","OUT","DLR","EQIX","QTS","CONE",
+        "O","WPC","NNN","STOR","VICI","GLPI","MGP","EPR","SPG","MAC",
+        "EQR","AVB","ESS","UDR","AIV","MAA","CPT","INVH","AMH","SUI",
+        "ELS","PSA","EXR","CUBE","LSI","NSA","COLD","STAG","ADC","TRNO"
     ],
 
-    "🇬🇧 FTSE 100": [
-        "SHEL.L", "AZN.L", "HSBA.L", "ULVR.L", "BP.L", "GSK.L", "RIO.L",
-        "DGE.L", "BHP.L", "REL.L", "NG.L", "BATS.L", "VOD.L", "LLOY.L",
-        "NWG.L", "BARC.L", "PRU.L", "LGEN.L", "AV.L", "STAN.L", "ABF.L",
-        "ANTO.L", "AUTO.L", "AVV.L", "BA.L", "BNZL.L", "BT-A.L", "CCH.L",
-        "CPG.L", "CNA.L", "CRDA.L", "DCC.L", "DPH.L", "EZJ.L", "FERG.L",
-        "FLTR.L", "GLEN.L", "HLMA.L", "HL.L", "IHG.L", "IMB.L", "INF.L",
-        "ITV.L", "JD.L", "KGF.L", "LAND.L", "MNG.L", "MRO.L", "NXT.L",
-        "OCDO.L", "PSN.L", "PSON.L", "RKT.L", "RR.L", "RS1.L", "SGE.L",
-        "SMDS.L", "SMIN.L", "SKG.L", "SPX.L", "SSE.L", "SBRY.L", "SVT.L",
-        "TSCO.L", "TUI.L", "UU.L", "WPP.L", "WTB.L"
+    # ──────────────────────────────────────────────
+    "🇩🇪 DAX 40 COMPLETO": [
+        "SAP.DE","SIE.DE","AIR.DE","ALV.DE","DTE.DE","MBG.DE","VOW3.DE",
+        "BMW.DE","BAS.DE","ADS.DE","IFX.DE","DHL.DE","MUV2.DE","DB1.DE",
+        "BEI.DE","RWE.DE","EOAN.DE","SY1.DE","BAYN.DE","DTG.DE","HEN3.DE",
+        "VNA.DE","CON.DE","PAH3.DE","MTX.DE","HEI.DE","MRK.DE","BNR.DE",
+        "HNR1.DE","ZAL.DE","FRE.DE","FME.DE","QIA.DE","PUM.DE","SHL.DE",
+        "ENR.DE","EVT.DE","1COV.DE","SON22.DE","SXS.DE"
     ],
 
-    "⚡ ETFs & SECTORES": [
-        "XLK", "XLF", "XLV", "XLE", "XLC", "XLY", "XLP", "XLI", "XLB", "XLRE", "XLU",
-        "QQQ", "SPY", "IWM", "DIA", "VTI", "EWZ", "EEM", "GDX", "GDXJ",
-        "SMH", "SOXX", "XBI", "KWEB", "TAN", "ICLN", "LIT", "URA",
-        "GLD", "SLV", "USO", "UNG", "CORN", "WEAT", "SOYB",
-        "TLT", "IEF", "HYG", "LQD", "BNDX",
-        "MSTR", "COIN", "MARA", "RIOT", "CLSK"
+    # ──────────────────────────────────────────────
+    "🇩🇪 MDAX ALEMANIA (Mid Caps)": [
+        "AIXA.DE","AFX.DE","BNR.DE","BOSS.DE","COP.DE","EVK.DE","FPE3.DE",
+        "G1A.DE","GXI.DE","HAG.DE","HHFA.DE","HOT.DE","IFX.DE","JEN.DE",
+        "K+S.DE","KGX.DE","KSB3.DE","LEG.DE","LHA.DE","MBB.DE","MDG1.DE",
+        "MRCG.DE","NDX1.DE","NEM.DE","O2D.DE","PSM.DE","RAA.DE","RSL2.DE",
+        "S92.DE","SDF.DE","SDAX.DE","SGL.DE","SMHN.DE","ST5.DE","STO3.DE",
+        "SY1.DE","TKA.DE","TUI1.DE","VBK.DE","WAF.DE","WCH.DE","WIN.DE"
     ],
 
-    "🎯 SMALL CAPS & ESPECULATIVOS": [
-        "SOFI", "AFRM", "HOOD", "DKNG", "LCID", "RIVN", "PLTR",
-        "CRWD", "DDOG", "ZS", "NET", "SNOW", "OKTA", "TWLO", "BILL",
-        "UPST", "AI", "IONQ", "JOBY", "QS", "OPEN",
-        "GME", "AMC", "BBBY", "TLRY", "SNDL", "ACB",
-        "CVNA", "CROX", "ELF", "CELH", "HIMS", "ACMR",
-        "OXY", "HAL", "SLB", "APA", "DVN", "MRO", "HES",
-        "VLO", "MPC", "PSX", "FANG", "EOG", "COP",
-        "KMI", "WMB", "ET", "EPD", "MPLX"
-    ]
+    # ──────────────────────────────────────────────
+    "🇪🇸 IBEX 35 COMPLETO": [
+        "ITX.MC","IBE.MC","BBVA.MC","SAN.MC","CABK.MC","TEF.MC","ACS.MC",
+        "FER.MC","AENA.MC","AMS.MC","REP.MC","CLNX.MC","IAG.MC","ENG.MC",
+        "ANA.MC","GRF.MC","RED.MC","MTS.MC","ACX.MC","BKT.MC","MAP.MC",
+        "TL5.MC","MEL.MC","PHM.MC","SAB.MC","IDR.MC","COL.MC","LOG.MC",
+        "FDR.MC","ROVI.MC","SOL.MC","UNI.MC","VIS.MC","ELE.MC","CIE.MC"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇪🇸 BME GROWTH (Small Caps España)": [
+        "OHLA.MC","MDF.MC","CASH.MC","ERIZ.MC","CLNX.MC","ENAV.MC",
+        "ALNT.MC","BAIN.MC","DGRN.MC","ECR.MC","ELEX.MC","FLUI.MC",
+        "HERN.MC","HGT.MC","LABE.MC","LFDS.MC","MDLN.MC","MEHR.MC",
+        "MENT.MC","MXOC.MC","MYMD.MC","NMAS.MC","NRGY.MC","NTGY.MC",
+        "OHLA.MC","ORYC.MC","PBIT.MC","PCAS.MC","PRTC.MC","RLIA.MC"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇫🇷 CAC 40 COMPLETO": [
+        "MC.PA","OR.PA","RMS.PA","TTE.PA","SAN.PA","AIR.PA","SU.PA",
+        "BNP.PA","SAF.PA","EL.PA","AXA.PA","DG.PA","KER.PA","DSY.PA",
+        "STLAP.PA","RI.PA","CAP.PA","GLE.PA","ORA.PA","BN.PA","EN.PA",
+        "LR.PA","ACA.PA","CA.PA","ML.PA","VIE.PA","SGO.PA","HO.PA",
+        "ATO.PA","PUB.PA","WLN.PA","URW.PA","RNO.PA","VIV.PA","ENGI.PA",
+        "STM.PA","TEP.PA","BOL.PA","ERF.PA","AF.PA"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇫🇷 SBF 120 FRANCIA (Mid Caps)": [
+        "ABCA.PA","ALSTOM.PA","AMUN.PA","APAM.PA","ATOS.PA","BIC.PA",
+        "BIGBEN.PA","BIM.PA","BNB.PA","CHSR.PA","CNP.PA","COFA.PA",
+        "DBG.PA","DEC.PA","FNAC.PA","GAM.PA","GTT.PA","HLO.PA",
+        "IDP.PA","ILD.PA","IMVD.PA","INEA.PA","IPSO.PA","JCDECAUX.PA",
+        "KOF.PA","LACR.PA","LDL.PA","LI.PA","LOUP.PA","MANU.PA",
+        "MCPHY.PA","MEDCL.PA","MF.PA","MGDYN.PA","NEXANS.PA","NXI.PA",
+        "OPM.PA","OREGE.PA","PKGD.PA","PLXS.PA","RBAL.PA","REMY.PA",
+        "SAFT.PA","SBMO.PA","SCOR.PA","SEB.PA","SESG.PA","SPIE.PA","TITAN.PA"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇬🇧 FTSE 100 COMPLETO": [
+        "SHEL.L","AZN.L","HSBA.L","ULVR.L","BP.L","GSK.L","RIO.L",
+        "DGE.L","BHP.L","REL.L","NG.L","BATS.L","VOD.L","LLOY.L",
+        "NWG.L","BARC.L","PRU.L","LGEN.L","AV.L","STAN.L","ABF.L",
+        "ANTO.L","AUTO.L","BA.L","BNZL.L","BT-A.L","CCH.L","CPG.L",
+        "CNA.L","CRDA.L","DCC.L","DPH.L","EZJ.L","FERG.L","FLTR.L",
+        "GLEN.L","HLMA.L","HL.L","IHG.L","IMB.L","ITV.L","JD.L",
+        "KGF.L","LAND.L","MNG.L","MRO.L","NXT.L","OCDO.L","PSN.L",
+        "PSON.L","RKT.L","RR.L","RS1.L","SGE.L","SMDS.L","SMIN.L",
+        "SKG.L","SPX.L","SSE.L","SBRY.L","SVT.L","TSCO.L","WPP.L",
+        "WTB.L","UU.L","TUI.L","AAL.L","ADM.L","AGK.L","ANTO.L",
+        "AHT.L","BME.L","BOO.L","BRBY.L","BVS.L","CCC.L","CLDN.L",
+        "CNE.L","COB.L","CYBG.L","DARK.L","DLN.L","ECM.L","ENT.L",
+        "EXPN.L","FCIT.L","FRES.L","GRG.L","HIK.L","HWDN.L","ICG.L",
+        "III.L","IMI.L","INF.L","ITRK.L","JET.L","JET2.L","JMAT.L",
+        "JUST.L","LSEG.L","LMP.L","MNDI.L","MONY.L","MTRO.L","MUT.L"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🌍 EUROSTOXX 50": [
+        "ASML.AS","ADYEN.AS","INGA.AS","PHIA.AS","HEIA.AS","NN.AS","RAND.AS","WKL.AS","ABN.AS","UMG.AS",
+        "SAP.DE","SIE.DE","ALV.DE","MBG.DE","BMW.DE","BAYN.DE","ADS.DE","BAS.DE","MUV2.DE","DTE.DE",
+        "MC.PA","OR.PA","TTE.PA","SAN.PA","BNP.PA","AIR.PA","SU.PA","AXA.PA","EL.PA","DG.PA",
+        "ITX.MC","BBVA.MC","SAN.MC","IBE.MC","REP.MC",
+        "ENI.MI","ISP.MI","UCG.MI","ENEL.MI","TIT.MI",
+        "NESN.SW","ROG.SW","NOVN.SW",
+        "NOKIA.HE","NESTE.HE"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇮🇹 FTSE MIB ITALIA": [
+        "ENI.MI","ISP.MI","UCG.MI","ENEL.MI","TIT.MI","G.MI","MB.MI",
+        "RACE.MI","LDO.MI","STM.MI","PRY.MI","BAMI.MI","MONC.MI","SRG.MI",
+        "PST.MI","ORN.MI","ERG.MI","BMPS.MI","CPR.MI","FCA.MI","STLAM.MI",
+        "CNH.MI","A2A.MI","AMP.MI","AZM.MI","BMED.MI","BC.MI","BZU.MI",
+        "CRDI.MI","DIA.MI","DIG.MI","EXO.MI","FILA.MI","FNM.MI","GEO.MI",
+        "IVG.MI","MFB.MI","MFEA.MI","MG.MI"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🇯🇵 NIKKEI 225 (ADRs disponibles en USA)": [
+        "TM","HMC","SONY","NTT","NTDOY","FUJIY","KYOCY","MUFG","SMFG","MFG",
+        "IX","KB","SHI","FANUY","HTHIY","ISUZY","KDDIY","KYCCF","MARUY","MSBHY",
+        "NIDEC","NIPNF","NPSNY","NSANY","OTSKY","PCRFY","RICOY","SEKEY","SFUN","SGIOY",
+        "SHCAY","SHNNY","SIEGY","SKLTY","SSDOY","SSUNY","STITF","STSFY","SVNDY","TCEHY",
+        "TKHVY","TKOMY","TMSNY","TNABY","TOELY","TRHCY","TRYIY","TTDKY","TWTDY","TYEKF"
+    ],
+
+    # ──────────────────────────────────────────────
+    "⚡ ETFs USA — SECTORES": [
+        "XLK","XLF","XLV","XLE","XLC","XLY","XLP","XLI","XLB","XLRE","XLU",
+        "VGT","VFH","VHT","VDE","VOX","VCR","VDC","VIS","VAW","VNQ","IDU",
+        "FNCL","FHLC","FENY","FCOM","FDIS","FSTA","FIDU","FMAT","FREL","FUTY"
+    ],
+
+    # ──────────────────────────────────────────────
+    "⚡ ETFs USA — ÍNDICES AMPLIOS": [
+        "SPY","QQQ","DIA","IWM","VTI","VOO","IVV","RSP","MDY","IJR",
+        "VTV","VUG","MTUM","QUAL","VLUE","SIZE","USMV","SPHQ","SPLV","SPHB",
+        "ARKK","ARKQ","ARKW","ARKG","ARKF","ARKX","PRNT","IZRL","ARKB","CTRU"
+    ],
+
+    # ──────────────────────────────────────────────
+    "⚡ ETFs INTERNACIONALES": [
+        "EWZ","EEM","EFA","VEA","IEFA","VWO","IEMG","FXI","MCHI","KWEB",
+        "EWJ","EWY","EWT","EWA","EWC","EWG","EWQ","EWI","EWP","EWU",
+        "EWH","EWS","EWM","EWN","EWD","EWL","EWO","EWK","EZU","HEDJ",
+        "DBJP","DBEF","DBEU","HEFA","DXJ","HEWJ","HEZU","HSCZ","FLKR","FLJP"
+    ],
+
+    # ──────────────────────────────────────────────
+    "⚡ ETFs TEMÁTICOS & APALANCADOS": [
+        "SMH","SOXX","XBI","TAN","ICLN","PBW","LIT","URA","REMX","COPX",
+        "BOTZ","ROBO","IRBO","AIQ","WCLD","CLOU","BUG","HACK","CIBR","IHAK",
+        "SQQQ","TQQQ","SPXU","UPRO","SPXS","SDOW","UDOW","LABD","LABU","UVXY",
+        "VXX","SVXY","VIXY","UVIX","SVOL","ZIVB","VIXM","VXZ","VIIX","TVIX",
+        "GLD","SLV","IAU","SGOL","PHYS","PSLV","PPLT","PALL","GDX","GDXJ",
+        "SIL","SILJ","NUGT","DUST","JNUG","JDST","RING","GOAU","SGDM","SGDJ",
+        "USO","UNG","BNO","DBO","BOIL","KOLD","UGA","CORN","WEAT","SOYB",
+        "TLT","IEF","SHY","HYG","LQD","JNK","BNDX","EMB","PCY","BWX",
+        "MSTR","COIN","MARA","RIOT","CLSK","HUT","BTBT","CIFR","CORZ","WULF"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🎯 GROWTH & DISRUPTIVAS USA": [
+        "NVDA","AMD","PLTR","CRWD","DDOG","ZS","NET","SNOW","OKTA","TWLO",
+        "BILL","GTLB","HUBS","CFLT","MDB","ESTC","DOMO","APPN","ALTR","PEGA",
+        "NOW","WDAY","VEEV","COUP","PCTY","PAYC","RNG","SMAR","MNDY","JAMF",
+        "DOCU","BOX","DBX","DRCT","FIVN","NICE","FOUR","BRZE","AMPL","ASAN",
+        "IONQ","RGTI","QUBT","QBTS","IBM","MSFT","GOOGL","ORCL","ADBE","CRM",
+        "UBER","LYFT","ABNB","DASH","GRUB","CART","TOST","PAR","SHAK","NURO",
+        "TSLA","LCID","RIVN","FSR","GOEV","WKHS","SOLO","AYRO","NKLA","HYLN",
+        "JOBY","ACHR","LILM","EVTOL","AAL","UAL","DAL","LUV","ALK","SAVE"
+    ],
+
+    # ──────────────────────────────────────────────
+    "🎯 SMALL CAPS & ESPECULATIVOS USA": [
+        "SOFI","AFRM","HOOD","DKNG","GME","AMC","TLRY","SNDL","ACB","HEXO",
+        "CRON","OGI","VEXT","TPVG","IIPR","MSOS","YOLO","MJ","THCX","CNBS",
+        "UPST","AI","SAVA","OPEN","SPCE","QS","NKLA","RIDE","XL","ATLIS",
+        "CVNA","CROX","ELF","CELH","HIMS","ACMR","LAZR","LIDR","INVZ","OUST",
+        "MVIS","VUZI","KOPN","KTOS","AVAV","RKLB","MNTS","ASTS","LUNR","RDW",
+        "OXY","HAL","SLB","APA","DVN","MRO","HES","COP","EOG","FANG",
+        "VLO","MPC","PSX","DK","PBF","KMI","WMB","ET","EPD","MPLX",
+        "AGNC","NLY","STWD","BXMT","ABR","RC","GPMT","KREF","LADR","TRTX",
+        "O","WPC","NNN","VICI","GLPI","STOR","ADC","EPR","SRC","PINE"
+    ],
+
+    # ──────────────────────────────────────────────
+    "💎 MEGA CAPS GLOBALES": [
+        "AAPL","MSFT","NVDA","GOOGL","AMZN","META","TSLA","AVGO","LLY","V",
+        "UNH","JPM","XOM","MA","JNJ","WMT","PG","HD","MRK","CVX",
+        "ABBV","KO","BAC","PEP","COST","TMO","CRM","ACN","MCD","CSCO",
+        "ABT","ORCL","ADBE","NKE","TXN","DHR","NEE","LIN","PM","RTX",
+        "NESN.SW","ROG.SW","NOVN.SW","SHEL.L","AZN.L","HSBA.L","BP.L","GSK.L",
+        "MC.PA","OR.PA","ASML.AS","SAP.DE","SIE.DE","ALV.DE","TM","SONY","MUFG"
+    ],
 }
 
 
 # ==============================================================================
-# 2. INTELIGENCIA TÉCNICA
+# 2. INTELIGENCIA TÉCNICA (sin cambios respecto a v23)
 # ==============================================================================
 
 def procesar_datos(ticker):
@@ -187,7 +319,6 @@ def procesar_datos(ticker):
         if df_d.empty or df_w.empty or df_m.empty:
             return None
 
-        # Fix MultiIndex de yfinance
         if isinstance(df_d.columns, pd.MultiIndex): df_d = df_d.xs(ticker, axis=1, level=1)
         if isinstance(df_w.columns, pd.MultiIndex): df_w = df_w.xs(ticker, axis=1, level=1)
         if isinstance(df_m.columns, pd.MultiIndex): df_m = df_m.xs(ticker, axis=1, level=1)
@@ -207,16 +338,12 @@ def procesar_datos(ticker):
         return None
 
 
-# ---- VELA DE ENGAÑO ----
 def check_vela_engano(df, idx=-1):
     if len(df) < abs(idx) + 2 or 'K' not in df.columns:
         return False, "", 0, 0
-
-    curr = df.iloc[idx]
-    prev = df.iloc[idx - 1]
+    curr = df.iloc[idx]; prev = df.iloc[idx - 1]
     mid_prev = (prev['High'] + prev['Low']) / 2
     k = curr['K']
-
     if (curr['Low'] < prev['Low']) and (curr['Close'] > mid_prev) and (k < 20.0):
         return True, "ALCISTA 🟢", k, min(curr['Low'], prev['Low'])
     if (curr['High'] > prev['High']) and (curr['Close'] < mid_prev) and (k > 80.0):
@@ -224,56 +351,40 @@ def check_vela_engano(df, idx=-1):
     return False, "", k, 0
 
 
-# ---- DIVERGENCIAS MACD ----
 def check_divergencia(df, ventana=10):
-    """
-    Divergencia alcista: precio hace mínimo más bajo pero MACD hace mínimo más alto.
-    Divergencia bajista: precio hace máximo más alto pero MACD hace máximo más bajo.
-    """
     if 'MACD' not in df.columns or len(df) < ventana + 2:
         return False, ""
-
     recent = df.iloc[-ventana:]
 
-    # Divergencia ALCISTA
     idx_min_price = recent['Close'].idxmin()
     idx_min_macd  = recent['MACD'].idxmin()
     pos_price = recent.index.get_loc(idx_min_price)
     pos_macd  = recent.index.get_loc(idx_min_macd)
-
     price_at_min_macd = recent['Close'].iloc[pos_macd]
     macd_at_min_price = recent['MACD'].iloc[pos_price]
-
     if (recent['Close'].iloc[-1] < price_at_min_macd) and (recent['MACD'].iloc[-1] > macd_at_min_price):
         return True, "DIV ALCISTA 📈"
 
-    # Divergencia BAJISTA
     idx_max_price = recent['Close'].idxmax()
     idx_max_macd  = recent['MACD'].idxmax()
     pos_price_max = recent.index.get_loc(idx_max_price)
     pos_macd_max  = recent.index.get_loc(idx_max_macd)
-
     price_at_max_macd = recent['Close'].iloc[pos_macd_max]
     macd_at_max_price = recent['MACD'].iloc[pos_price_max]
-
     if (recent['Close'].iloc[-1] > price_at_max_macd) and (recent['MACD'].iloc[-1] < macd_at_max_price):
         return True, "DIV BAJISTA 📉"
 
     return False, ""
 
 
-# ---- OPERACIONES PREMIUM (M+W+D confluencia) ----
 def super_buscador(pack):
     m = pack['M']; w = pack['W']; d = pack['D']
     if 'MACD' not in m.columns or len(m) < 2:
         return False, "", 0
-
     curr_m = m.iloc[-1]; prev_m = m.iloc[-2]
     m_bull = (curr_m['MACD'] > 0) and (curr_m['MACD'] > curr_m['Signal']) and (curr_m['MACD'] > prev_m['MACD'])
     m_bear = (curr_m['MACD'] < 0) and (curr_m['MACD'] < curr_m['Signal']) and (curr_m['MACD'] < prev_m['MACD'])
-
     w_curr = w.iloc[-1]; d_curr = d.iloc[-1]
-
     for i in range(5):
         idx = -1 - i
         es_vela, tipo, k, stop = check_vela_engano(w, idx=idx)
@@ -281,7 +392,6 @@ def super_buscador(pack):
             return True, f"💎 BUY PREMIUM (Hace {i} sem)", stop
         if m_bear and (w_curr['MACD'] > w_curr['Signal']) and (d_curr['MACD'] < d_curr['Signal']) and es_vela and "BAJISTA" in tipo:
             return True, f"💀 SELL PREMIUM (Hace {i} sem)", stop
-
     return False, "", 0
 
 
@@ -293,11 +403,11 @@ st.markdown("""
 <div style='text-align:center; padding: 10px 0 5px 0;'>
     <span style='font-family: Orbitron, monospace; font-size: 2.2rem; font-weight: 900;
                  color: #00e676; letter-spacing: 6px; text-shadow: 0 0 20px #00e676aa;'>
-        🦅 MACDELOREAN v23
+        🦅 MACDELOREAN v24
     </span><br>
     <span style='font-family: Share Tech Mono, monospace; font-size: 0.85rem;
                  color: #8b949e; letter-spacing: 4px;'>
-        SISTEMA DE INTELIGENCIA ESTRUCTURAL MULTI-ÍNDICE
+        SISTEMA DE INTELIGENCIA ESTRUCTURAL · UNIVERSO MÁXIMO
     </span>
 </div>
 """, unsafe_allow_html=True)
@@ -305,71 +415,101 @@ st.markdown("""
 st.markdown("---")
 
 # ==============================================================================
-# SIDEBAR - PANEL DE CONTROL
+# SIDEBAR
 # ==============================================================================
 with st.sidebar:
     st.markdown("## 🎛️ PANEL DE CONTROL")
     st.markdown("---")
 
-    # --- SELECCIÓN DE ÍNDICES ---
     st.markdown("### 📊 ÍNDICES A ESCANEAR")
+
+    # Botones rápidos de selección
+    col_sel1, col_sel2 = st.columns(2)
+    seleccionar_todos   = col_sel1.button("✅ Todos")
+    deseleccionar_todos = col_sel2.button("❌ Ninguno")
+
+    if seleccionar_todos:
+        for k in UNIVERSO.keys():
+            st.session_state[f"idx_{k}"] = True
+    if deseleccionar_todos:
+        for k in UNIVERSO.keys():
+            st.session_state[f"idx_{k}"] = False
+
+    st.markdown("")
+
+    # Agrupar por región
+    grupos = {
+        "🇺🇸 ESTADOS UNIDOS": [k for k in UNIVERSO if any(x in k for x in ["DOW","NASDAQ","S&P","GROWTH","SMALL","MEGA"])],
+        "🌍 EUROPA":          [k for k in UNIVERSO if any(x in k for x in ["DAX","MDAX","IBEX","BME","CAC","SBF","FTSE","EUROS","ITALIA"])],
+        "🌏 ASIA":            [k for k in UNIVERSO if "NIKKEI" in k],
+        "⚡ ETFs":            [k for k in UNIVERSO if "ETF" in k or "TEMÁT" in k],
+    }
+
     indices_seleccionados = []
-    for nombre_indice in UNIVERSO.keys():
-        n_tickers = len(UNIVERSO[nombre_indice])
-        if st.checkbox(f"{nombre_indice} ({n_tickers})", value=True, key=f"idx_{nombre_indice}"):
-            indices_seleccionados.append(nombre_indice)
+    for grupo, keys in grupos.items():
+        if not keys:
+            continue
+        st.markdown(f"**{grupo}**")
+        for nombre_indice in keys:
+            n = len(UNIVERSO[nombre_indice])
+            default_val = st.session_state.get(f"idx_{nombre_indice}", True)
+            checked = st.checkbox(f"{nombre_indice} ({n})", value=default_val, key=f"idx_{nombre_indice}")
+            if checked:
+                indices_seleccionados.append(nombre_indice)
+        st.markdown("")
 
     st.markdown("---")
 
-    # --- FILTROS DE BÚSQUEDA ---
     st.markdown("### 🔍 FILTROS DE BÚSQUEDA")
-    filtro_premium   = st.checkbox("💎 Operaciones Premium (M+W+D)", value=True)
-    filtro_velas     = st.checkbox("🕯️ Velas de Engaño (W/M)",       value=True)
-    filtro_diverg    = st.checkbox("📐 Divergencias MACD",            value=False)
+    filtro_premium = st.checkbox("💎 Operaciones Premium (M+W+D)", value=True)
+    filtro_velas   = st.checkbox("🕯️ Velas de Engaño (W/M)",       value=True)
+    filtro_diverg  = st.checkbox("📐 Divergencias MACD",            value=False)
 
     st.markdown("---")
 
-    # --- FILTRO DIRECCIÓN ---
     st.markdown("### 🧭 DIRECCIÓN")
-    dir_alcista = st.checkbox("🟢 Mostrar señales ALCISTAS", value=True)
-    dir_bajista = st.checkbox("🔴 Mostrar señales BAJISTAS", value=True)
+    dir_alcista = st.checkbox("🟢 Alcistas", value=True)
+    dir_bajista = st.checkbox("🔴 Bajistas", value=True)
 
     st.markdown("---")
 
-    # --- RESUMEN ---
     total_tickers = sum(len(UNIVERSO[i]) for i in indices_seleccionados)
+    # Estimar tiempo
+    seg_est = total_tickers * 0.35
+    min_est = int(seg_est // 60)
+    seg_r   = int(seg_est % 60)
+
     st.markdown(f"""
-    <div style='background:#0d2137; border:1px solid #00e676; border-radius:6px; padding:10px; text-align:center;'>
-        <span style='font-family:Share Tech Mono; color:#8b949e; font-size:12px;'>OBJETIVOS SELECCIONADOS</span><br>
-        <span style='font-family:Orbitron; color:#00e676; font-size:2rem; font-weight:700;'>{total_tickers}</span>
+    <div style='background:#0d2137; border:1px solid #00e676; border-radius:6px; padding:12px; text-align:center;'>
+        <span style='font-family:Share Tech Mono; color:#8b949e; font-size:11px;'>OBJETIVOS</span><br>
+        <span style='font-family:Orbitron; color:#00e676; font-size:2rem; font-weight:700;'>{total_tickers}</span><br>
+        <span style='font-family:Share Tech Mono; color:#8b949e; font-size:11px;'>⏱ EST. {min_est}m {seg_r}s</span>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
 
+    st.markdown("<br>", unsafe_allow_html=True)
     lanzar = st.button("🔥 LANZAR RADAR")
 
+
 # ==============================================================================
-# LÓGICA DE EJECUCIÓN
+# EJECUCIÓN
 # ==============================================================================
 if lanzar:
     if not indices_seleccionados:
-        st.error("⚠️ Selecciona al menos un índice en el panel lateral.")
+        st.error("⚠️ Selecciona al menos un índice.")
         st.stop()
-
     if not (filtro_premium or filtro_velas or filtro_diverg):
         st.error("⚠️ Activa al menos un filtro de búsqueda.")
         st.stop()
 
-    # Construir lista de tickers únicos
-    master_list = []
-    for idx_name in indices_seleccionados:
-        master_list.extend(UNIVERSO[idx_name])
-    master_list = list(dict.fromkeys(master_list))  # quitar duplicados manteniendo orden
+    master_list = list(dict.fromkeys(
+        ticker for idx_name in indices_seleccionados for ticker in UNIVERSO[idx_name]
+    ))
 
-    st.success(f"📡 CONECTANDO CON **{len(master_list)} OBJETIVOS** EN **{len(indices_seleccionados)} ÍNDICES**. ESCANEO EN PROCESO...")
+    st.success(f"📡 **{len(master_list)} OBJETIVOS** · **{len(indices_seleccionados)} ÍNDICES** — ESCANEO EN PROCESO...")
 
-    res_prem  = []
-    res_velas = []
+    res_prem   = []
+    res_velas  = []
     res_diverg = []
 
     progress_bar = st.progress(0)
@@ -381,7 +521,7 @@ if lanzar:
 
     for i, ticker in enumerate(master_list):
         progress_bar.progress((i + 1) / len(master_list))
-        status_text.text(f"🔎 Analizando: {ticker}  [{i+1}/{len(master_list)}]")
+        status_text.text(f"🔎 {ticker}  [{i+1}/{len(master_list)}]")
         time.sleep(0.05)
 
         pack = procesar_datos(ticker)
@@ -390,20 +530,13 @@ if lanzar:
 
         precio = round(float(pack['D'].iloc[-1]['Close']), 2)
 
-        # ---- PREMIUM ----
         if filtro_premium:
             es_sup, txt, stop = super_buscador(pack)
             if es_sup:
                 if ("BUY" in txt and dir_alcista) or ("SELL" in txt and dir_bajista):
-                    res_prem.append({
-                        "Ticker":    ticker,
-                        "Señal":     txt,
-                        "Precio":    precio,
-                        "Stop Ref":  round(float(stop), 2)
-                    })
+                    res_prem.append({"Ticker": ticker, "Señal": txt, "Precio": precio, "Stop Ref": round(float(stop), 2)})
                     ph_prem.dataframe(pd.DataFrame(res_prem), use_container_width=True)
 
-        # ---- VELAS DE ENGAÑO ----
         if filtro_velas:
             for tf_key, tf_name in [('M', 'MENSUAL'), ('W', 'SEMANAL')]:
                 for j in range(4):
@@ -412,51 +545,38 @@ if lanzar:
                         es_alc = "ALCISTA" in t
                         if (es_alc and dir_alcista) or (not es_alc and dir_bajista):
                             res_velas.append({
-                                "Ticker":     ticker,
-                                "TF":         tf_name,
-                                "Señal":      t,
+                                "Ticker": ticker, "TF": tf_name, "Señal": t,
                                 "Antigüedad": f"Hace {j} {'Mes' if tf_key=='M' else 'Sem'}",
-                                "Stoch K":    round(k, 1),
-                                "Precio":     precio
+                                "Stoch K": round(k, 1), "Precio": precio
                             })
                             ph_velas.dataframe(pd.DataFrame(res_velas), use_container_width=True)
                         break
 
-        # ---- DIVERGENCIAS ----
         if filtro_diverg:
             for tf_key, tf_name in [('D', 'DIARIO'), ('W', 'SEMANAL'), ('M', 'MENSUAL')]:
                 es_div, tipo_div = check_divergencia(pack[tf_key], ventana=10)
                 if es_div:
                     es_alc_div = "ALCISTA" in tipo_div
                     if (es_alc_div and dir_alcista) or (not es_alc_div and dir_bajista):
-                        res_diverg.append({
-                            "Ticker":  ticker,
-                            "TF":      tf_name,
-                            "Tipo":    tipo_div,
-                            "Precio":  precio
-                        })
+                        res_diverg.append({"Ticker": ticker, "TF": tf_name, "Tipo": tipo_div, "Precio": precio})
                         ph_div.dataframe(pd.DataFrame(res_diverg), use_container_width=True)
 
-    # Limpiar placeholders temporales
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
     progress_bar.empty()
     status_text.success("✅ ESCANEO COMPLETADO.")
     st.balloons()
 
-    # --- RESUMEN EJECUTIVO ---
     st.markdown("---")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("🎯 Tickers Escaneados", len(master_list))
-    m2.metric("💎 Señales Premium",    len(res_prem))
-    m3.metric("🕯️ Velas Engaño",      len(res_velas))
-    m4.metric("📐 Divergencias",       len(res_diverg))
+    m1.metric("🎯 Escaneados",       len(master_list))
+    m2.metric("💎 Premium",          len(res_prem))
+    m3.metric("🕯️ Velas Engaño",    len(res_velas))
+    m4.metric("📐 Divergencias",     len(res_diverg))
     st.markdown("---")
 
-    # --- TABS RESULTADOS ---
-    num_tabs = sum([filtro_premium, filtro_velas, filtro_diverg])
     tab_labels = []
     if filtro_premium: tab_labels.append(f"💎 PREMIUM ({len(res_prem)})")
-    if filtro_velas:   tab_labels.append(f"🕯️ VELAS ENGAÑO ({len(res_velas)})")
+    if filtro_velas:   tab_labels.append(f"🕯️ VELAS ({len(res_velas)})")
     if filtro_diverg:  tab_labels.append(f"📐 DIVERGENCIAS ({len(res_diverg)})")
 
     tabs = st.tabs(tab_labels)
@@ -467,29 +587,24 @@ if lanzar:
             if res_prem:
                 df_out = pd.DataFrame(res_prem)
                 st.dataframe(df_out, use_container_width=True)
-                csv = df_out.to_csv(index=False).encode('utf-8')
-                st.download_button("⬇️ Exportar CSV", csv, "premium.csv", "text/csv")
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "premium.csv", "text/csv")
             else:
-                st.warning("El mercado no ofrece entradas Premium hoy. Mantener disciplina.")
+                st.warning("Sin entradas Premium hoy. Mantener disciplina.")
         tab_idx += 1
 
     if filtro_velas:
         with tabs[tab_idx]:
             if res_velas:
                 df_out = pd.DataFrame(res_velas)
-                # Separar alcistas / bajistas
                 alc = df_out[df_out['Señal'].str.contains("ALCISTA")]
                 baj = df_out[df_out['Señal'].str.contains("BAJISTA")]
                 if not alc.empty:
-                    st.markdown("#### 🟢 ALCISTAS")
-                    st.dataframe(alc, use_container_width=True)
+                    st.markdown("#### 🟢 ALCISTAS"); st.dataframe(alc, use_container_width=True)
                 if not baj.empty:
-                    st.markdown("#### 🔴 BAJISTAS")
-                    st.dataframe(baj, use_container_width=True)
-                csv = df_out.to_csv(index=False).encode('utf-8')
-                st.download_button("⬇️ Exportar CSV", csv, "velas.csv", "text/csv")
+                    st.markdown("#### 🔴 BAJISTAS"); st.dataframe(baj, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "velas.csv", "text/csv")
             else:
-                st.info("No se han detectado velas de engaño extremas.")
+                st.info("Sin velas de engaño detectadas.")
         tab_idx += 1
 
     if filtro_diverg:
@@ -499,63 +614,55 @@ if lanzar:
                 alc = df_out[df_out['Tipo'].str.contains("ALCISTA")]
                 baj = df_out[df_out['Tipo'].str.contains("BAJISTA")]
                 if not alc.empty:
-                    st.markdown("#### 📈 DIVERGENCIAS ALCISTAS")
-                    st.dataframe(alc, use_container_width=True)
+                    st.markdown("#### 📈 ALCISTAS"); st.dataframe(alc, use_container_width=True)
                 if not baj.empty:
-                    st.markdown("#### 📉 DIVERGENCIAS BAJISTAS")
-                    st.dataframe(baj, use_container_width=True)
-                csv = df_out.to_csv(index=False).encode('utf-8')
-                st.download_button("⬇️ Exportar CSV", csv, "divergencias.csv", "text/csv")
+                    st.markdown("#### 📉 BAJISTAS"); st.dataframe(baj, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "divergencias.csv", "text/csv")
             else:
-                st.info("No se han detectado divergencias en los parámetros seleccionados.")
+                st.info("Sin divergencias detectadas.")
 
 else:
-    # --- PANTALLA INICIAL ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    stats = [
+        ("📊", "ÍNDICES", "17 mercados"),
+        ("🎯", "TICKERS", f"~{sum(len(v) for v in UNIVERSO.values())} activos"),
+        ("🌍", "COBERTURA", "USA · EU · UK · JP"),
+        ("⚡", "ETFs", "Sectores · Temáticos · Apalancados"),
+    ]
+    for col, (icon, label, val) in zip([c1,c2,c3,c4], stats):
+        col.markdown(f"""
+        <div style='background:#0d1117; border:1px solid #1e3a2f; border-radius:8px;
+                    padding:16px; text-align:center;'>
+            <div style='font-size:1.8rem;'>{icon}</div>
+            <div style='font-family:Orbitron; color:#00e676; font-size:11px;
+                        letter-spacing:2px; margin:4px 0;'>{label}</div>
+            <div style='font-family:Share Tech Mono; color:#c9d1d9; font-size:13px;'>{val}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("""
+    bloques = [
+        ("💎 PREMIUM", "Confluencia M + W + D\nMACD estricto multi-timeframe\n+ Vela de engaño semanal"),
+        ("🕯️ VELAS ENGAÑO", "Barrido de mínimos/máximos\nRecuperación > 50% vela\nEstocástico extremo (<20 / >80)"),
+        ("📐 DIVERGENCIAS", "Precio vs Momentum MACD\nVentana de 10 velas\nDisponible en D / W / M"),
+    ]
+    for col, (titulo, desc) in zip([c1,c2,c3], bloques):
+        col.markdown(f"""
         <div style='background:#0d1117; border:1px solid #1e3a2f; border-radius:8px; padding:16px;'>
-            <div style='font-family:Orbitron; color:#00e676; font-size:13px; margin-bottom:8px;'>📊 ÍNDICES DISPONIBLES</div>
-            <div style='font-family:Share Tech Mono; color:#8b949e; font-size:12px; line-height:1.8;'>
-                🇺🇸 DOW JONES 30<br>
-                🚀 NASDAQ 100<br>
-                📈 S&P 500 SELECT<br>
-                🇩🇪 DAX 40<br>
-                🇪🇸 IBEX 35<br>
-                🇫🇷 CAC 40<br>
-                🇬🇧 FTSE 100<br>
-                ⚡ ETFs & SECTORES<br>
-                🎯 SMALL CAPS
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div style='background:#0d1117; border:1px solid #1e3a2f; border-radius:8px; padding:16px;'>
-            <div style='font-family:Orbitron; color:#00e676; font-size:13px; margin-bottom:8px;'>🔍 FILTROS ACTIVOS</div>
-            <div style='font-family:Share Tech Mono; color:#8b949e; font-size:12px; line-height:1.8;'>
-                💎 Operaciones Premium<br>&nbsp;&nbsp;&nbsp;→ Confluencia M + W + D<br>
-                🕯️ Velas de Engaño<br>&nbsp;&nbsp;&nbsp;→ Barrido + Estocástico<br>
-                📐 Divergencias MACD<br>&nbsp;&nbsp;&nbsp;→ Precio vs Momentum
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    with c3:
-        st.markdown("""
-        <div style='background:#0d1117; border:1px solid #1e3a2f; border-radius:8px; padding:16px;'>
-            <div style='font-family:Orbitron; color:#00e676; font-size:13px; margin-bottom:8px;'>⚙️ LÓGICA DE SEÑALES</div>
-            <div style='font-family:Share Tech Mono; color:#8b949e; font-size:12px; line-height:1.8;'>
-                PREMIUM: MACD Mensual<br>&nbsp;&nbsp;&nbsp;+ Correctivo Semanal<br>&nbsp;&nbsp;&nbsp;+ Giro Diario<br>&nbsp;&nbsp;&nbsp;+ Vela Engaño<br><br>
-                DIVERGENCIA: Precio ↕<br>&nbsp;&nbsp;&nbsp;vs MACD ↕ (10 velas)
-            </div>
+            <div style='font-family:Orbitron; color:#00e676; font-size:12px;
+                        margin-bottom:10px; letter-spacing:1px;'>{titulo}</div>
+            <div style='font-family:Share Tech Mono; color:#8b949e; font-size:11px;
+                        line-height:1.9; white-space:pre-line;'>{desc}</div>
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("""
-    <div style='text-align:center; font-family:Share Tech Mono; color:#3d4f3d; font-size:13px; letter-spacing:3px;'>
-        ← SELECCIONA ÍNDICES Y FILTROS EN EL PANEL IZQUIERDO · PULSA LANZAR RADAR →
+    <div style='text-align:center; font-family:Share Tech Mono; color:#2a3f2a;
+                font-size:12px; letter-spacing:3px;'>
+        ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
 
