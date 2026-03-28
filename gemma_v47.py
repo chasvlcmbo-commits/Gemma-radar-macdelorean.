@@ -424,12 +424,20 @@ with st.sidebar:
 
     st.markdown("### 📊 ÍNDICES A ESCANEAR")
 
+    # Agrupar por región — DEBE ir ANTES de los botones
+    grupos = {
+        "USA": [k for k in UNIVERSO if any(x in k for x in ["DOW","NASDAQ","S&P","GROWTH","SMALL","MEGA"])],
+        "EUROPA": [k for k in UNIVERSO if any(x in k for x in ["DAX","MDAX","IBEX","BME","CAC","SBF","FTSE","EUROS","ITALIA"])],
+        "ASIA": [k for k in UNIVERSO if "NIKKEI" in k],
+        "ETFs": [k for k in UNIVERSO if "ETF" in k or "TEMAT" in k],
+    }
+    n_total = sum(len(keys) for keys in grupos.values())
+
     # Botones rápidos de selección
     col_sel1, col_sel2 = st.columns(2)
     seleccionar_todos   = col_sel1.button("✅ Todos")
     deseleccionar_todos = col_sel2.button("❌ Ninguno")
 
-    n_total = sum(len(v) for v in grupos.values())
     if seleccionar_todos:
         for i in range(n_total):
             st.session_state[f"idx_{i}"] = True
@@ -438,14 +446,6 @@ with st.sidebar:
             st.session_state[f"idx_{i}"] = False
 
     st.markdown("")
-
-    # Agrupar por región
-    grupos = {
-        "🇺🇸 ESTADOS UNIDOS": [k for k in UNIVERSO if any(x in k for x in ["DOW","NASDAQ","S&P","GROWTH","SMALL","MEGA"])],
-        "🌍 EUROPA":          [k for k in UNIVERSO if any(x in k for x in ["DAX","MDAX","IBEX","BME","CAC","SBF","FTSE","EUROS","ITALIA"])],
-        "🌏 ASIA":            [k for k in UNIVERSO if "NIKKEI" in k],
-        "⚡ ETFs":            [k for k in UNIVERSO if "ETF" in k or "TEMÁT" in k],
-    }
 
     indices_seleccionados = []
     key_counter = 0
