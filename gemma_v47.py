@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -428,12 +429,13 @@ with st.sidebar:
     seleccionar_todos   = col_sel1.button("✅ Todos")
     deseleccionar_todos = col_sel2.button("❌ Ninguno")
 
+    n_total = sum(len(v) for v in grupos.values())
     if seleccionar_todos:
-        for k in UNIVERSO.keys():
-            st.session_state[f"idx_{k}"] = True
+        for i in range(n_total):
+            st.session_state[f"idx_{i}"] = True
     if deseleccionar_todos:
-        for k in UNIVERSO.keys():
-            st.session_state[f"idx_{k}"] = False
+        for i in range(n_total):
+            st.session_state[f"idx_{i}"] = False
 
     st.markdown("")
 
@@ -446,16 +448,19 @@ with st.sidebar:
     }
 
     indices_seleccionados = []
+    key_counter = 0
     for grupo, keys in grupos.items():
         if not keys:
             continue
         st.markdown(f"**{grupo}**")
         for nombre_indice in keys:
             n = len(UNIVERSO[nombre_indice])
-            default_val = st.session_state.get(f"idx_{nombre_indice}", True)
-            checked = st.checkbox(f"{nombre_indice} ({n})", value=default_val, key=f"idx_{nombre_indice}")
+            safe_key = f"idx_{key_counter}"
+            default_val = st.session_state.get(safe_key, True)
+            checked = st.checkbox(f"{nombre_indice} ({n})", value=default_val, key=safe_key)
             if checked:
                 indices_seleccionados.append(nombre_indice)
+            key_counter += 1
         st.markdown("")
 
     st.markdown("---")
