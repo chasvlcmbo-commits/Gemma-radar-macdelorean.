@@ -464,6 +464,25 @@ def super_buscador(pack):
     return False, "", 0
 
 
+def check_macd_estado(df):
+    """
+    Devuelve el estado del MACD: 'alcista', 'bajista' o 'neutro'
+    Alcista:  MACD > Signal Y histograma subiendo (MACD - Signal mayor que vela anterior)
+    Bajista:  MACD < Signal Y histograma bajando
+    """
+    if 'MACD' not in df.columns or 'Signal' not in df.columns or len(df) < 2:
+        return 'neutro'
+    curr = df.iloc[-1]
+    prev = df.iloc[-2]
+    hist_curr = curr['MACD'] - curr['Signal']
+    hist_prev = prev['MACD'] - prev['Signal']
+    if curr['MACD'] > curr['Signal'] and hist_curr > hist_prev:
+        return 'alcista'
+    if curr['MACD'] < curr['Signal'] and hist_curr < hist_prev:
+        return 'bajista'
+    return 'neutro'
+
+
 # ==============================================================================
 # 3. INTERFAZ
 # ==============================================================================
@@ -534,15 +553,25 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown("### 🔍 FILTROS DE BÚSQUEDA")
-    filtro_premium = st.checkbox("💎 Operaciones Premium (M+W+D)", value=True)
-    filtro_velas   = st.checkbox("🕯️ Velas de Engaño (W/M)",       value=True)
-    filtro_diverg  = st.checkbox("📐 Divergencias MACD",            value=False)
+    filtro_premium   = st.checkbox("💎 Operaciones Premium (M+W+D)", value=True,  key="f1")
+    filtro_velas     = st.checkbox("🕯️ Velas de Engaño (W/M)",       value=True,  key="f2")
+    filtro_diverg    = st.checkbox("📐 Divergencias MACD",            value=False, key="f3")
+    filtro_macd_combo = st.checkbox("📡 Radar MACD por Timeframe",    value=False, key="f4")
+
+    if filtro_macd_combo:
+        st.markdown("**Estado MACD — selecciona cada TF:**")
+        opciones_macd = ["⚪ Cualquiera", "🟢 Alcista", "🔴 Bajista"]
+        macd_m = st.selectbox("Mensual (M)", opciones_macd, index=0, key="macd_m")
+        macd_w = st.selectbox("Semanal (W)", opciones_macd, index=0, key="macd_w")
+        macd_d = st.selectbox("Diario  (D)", opciones_macd, index=0, key="macd_d")
+    else:
+        macd_m = macd_w = macd_d = "⚪ Cualquiera"
 
     st.markdown("---")
 
     st.markdown("### 🧭 DIRECCIÓN")
-    dir_alcista = st.checkbox("🟢 Alcistas", value=True)
-    dir_bajista = st.checkbox("🔴 Bajistas", value=True)
+    dir_alcista = st.checkbox("🟢 Alcistas", value=True, key="dir1")
+    dir_bajista = st.checkbox("🔴 Bajistas", value=True, key="dir2")
 
     st.markdown("---")
 
@@ -571,7 +600,7 @@ if lanzar:
     if not indices_seleccionados:
         st.error("⚠️ Selecciona al menos un índice.")
         st.stop()
-    if not (filtro_premium or filtro_velas or filtro_diverg):
+    if not (filtro_premium or filtro_velas or filtro_diverg or filtro_macd_combo):
         st.error("⚠️ Activa al menos un filtro de búsqueda.")
         st.stop()
 
@@ -584,6 +613,7 @@ if lanzar:
     res_prem   = []
     res_velas  = []
     res_diverg = []
+    res_macd   = []
 
     progress_bar = st.progress(0)
     status_text  = st.empty()
@@ -641,23 +671,46 @@ if lanzar:
                         })
                         ph_div.dataframe(pd.DataFrame(res_diverg), use_container_width=True)
 
+        if filtro_macd_combo:
+            estado_m = check_macd_estado(pack['M'])
+            estado_w = check_macd_estado(pack['W'])
+            estado_d = check_macd_estado(pack['D'])
+
+            def cumple(seleccion, estado):
+                if seleccion == "⚪ Cualquiera": return True
+                if seleccion == "🟢 Alcista"   : return estado == 'alcista'
+                if seleccion == "🔴 Bajista"   : return estado == 'bajista'
+                return True
+
+            if cumple(macd_m, estado_m) and cumple(macd_w, estado_w) and cumple(macd_d, estado_d):
+                def icono(e): return "🟢" if e=='alcista' else ("🔴" if e=='bajista' else "⚪")
+                res_macd.append({
+                    "Ticker":   ticker,
+                    "Mensual":  f"{icono(estado_m)} {estado_m.capitalize()}",
+                    "Semanal":  f"{icono(estado_w)} {estado_w.capitalize()}",
+                    "Diario":   f"{icono(estado_d)} {estado_d.capitalize()}",
+                    "Precio":   precio
+                })
+
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
     progress_bar.empty()
     status_text.success("✅ ESCANEO COMPLETADO.")
     st.balloons()
 
     st.markdown("---")
-    m1, m2, m3, m4 = st.columns(4)
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("🎯 Escaneados",       len(master_list))
     m2.metric("💎 Premium",          len(res_prem))
     m3.metric("🕯️ Velas Engaño",    len(res_velas))
     m4.metric("📐 Divergencias",     len(res_diverg))
+    m5.metric("📡 MACD Combo",       len(res_macd))
     st.markdown("---")
 
     tab_labels = []
-    if filtro_premium: tab_labels.append(f"💎 PREMIUM ({len(res_prem)})")
-    if filtro_velas:   tab_labels.append(f"🕯️ VELAS ({len(res_velas)})")
-    if filtro_diverg:  tab_labels.append(f"📐 DIVERGENCIAS ({len(res_diverg)})")
+    if filtro_premium:    tab_labels.append(f"💎 PREMIUM ({len(res_prem)})")
+    if filtro_velas:      tab_labels.append(f"🕯️ VELAS ({len(res_velas)})")
+    if filtro_diverg:     tab_labels.append(f"📐 DIVERGENCIAS ({len(res_diverg)})")
+    if filtro_macd_combo: tab_labels.append(f"📡 MACD COMBO ({len(res_macd)})")
 
     tabs = st.tabs(tab_labels)
     tab_idx = 0
@@ -700,6 +753,17 @@ if lanzar:
                 st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "divergencias.csv", "text/csv")
             else:
                 st.info("Sin divergencias detectadas.")
+        tab_idx += 1
+
+    if filtro_macd_combo:
+        with tabs[tab_idx]:
+            if res_macd:
+                df_out = pd.DataFrame(res_macd)
+                st.markdown("#### 📡 RESULTADOS RADAR MACD")
+                st.dataframe(df_out, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "macd_combo.csv", "text/csv")
+            else:
+                st.info("Ningún activo cumple la combinación MACD seleccionada.")
 
 else:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -745,6 +809,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
