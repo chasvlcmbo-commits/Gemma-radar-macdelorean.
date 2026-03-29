@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -352,28 +351,85 @@ def check_vela_engano(df, idx=-1):
     return False, "", k, 0
 
 
-def check_divergencia(df, ventana=10):
-    if 'MACD' not in df.columns or len(df) < ventana + 2:
+def encontrar_swings(serie, es_minimo=True, min_dist=3):
+    """
+    Detecta swing points reales en una serie.
+    min_dist: velas mínimas de separación entre swings.
+    """
+    swings = []
+    valores = serie.values
+    indices = list(range(len(valores)))
+    for i in range(min_dist, len(valores) - min_dist):
+        ventana_izq = valores[i - min_dist:i]
+        ventana_der = valores[i + 1:i + min_dist + 1]
+        if es_minimo:
+            if valores[i] < min(ventana_izq) and valores[i] < min(ventana_der):
+                swings.append(i)
+        else:
+            if valores[i] > max(ventana_izq) and valores[i] > max(ventana_der):
+                swings.append(i)
+    return swings
+
+
+def check_divergencia(df, timeframe="D"):
+    """
+    Divergencia real basada en swing points del MACD con:
+    - Distancia mínima entre puntos según timeframe (D=40v, W=26v, M=12v)
+    - MACD alejado de 0 en ambos puntos
+    - Comparación precio vs MACD en los swings
+    """
+    if 'MACD' not in df.columns or 'Close' not in df.columns:
         return False, ""
-    recent = df.iloc[-ventana:]
 
-    idx_min_price = recent['Close'].idxmin()
-    idx_min_macd  = recent['MACD'].idxmin()
-    pos_price = recent.index.get_loc(idx_min_price)
-    pos_macd  = recent.index.get_loc(idx_min_macd)
-    price_at_min_macd = recent['Close'].iloc[pos_macd]
-    macd_at_min_price = recent['MACD'].iloc[pos_price]
-    if (recent['Close'].iloc[-1] < price_at_min_macd) and (recent['MACD'].iloc[-1] > macd_at_min_price):
-        return True, "DIV ALCISTA 📈"
+    # Distancia mínima en velas según timeframe
+    # D: ~40 velas = 2 meses | W: ~26 velas = 6 meses | M: ~12 velas = 1 año
+    min_velas = {"D": 40, "W": 26, "M": 12}.get(timeframe, 40)
+    min_swing_sep = 3  # separación mínima para detectar swing point
 
-    idx_max_price = recent['Close'].idxmax()
-    idx_max_macd  = recent['MACD'].idxmax()
-    pos_price_max = recent.index.get_loc(idx_max_price)
-    pos_macd_max  = recent.index.get_loc(idx_max_macd)
-    price_at_max_macd = recent['Close'].iloc[pos_macd_max]
-    macd_at_max_price = recent['MACD'].iloc[pos_price_max]
-    if (recent['Close'].iloc[-1] > price_at_max_macd) and (recent['MACD'].iloc[-1] < macd_at_max_price):
-        return True, "DIV BAJISTA 📉"
+    # Umbral de distancia a 0 — mínimo 15% del rango total del MACD
+    rango_macd = df['MACD'].max() - df['MACD'].min()
+    if rango_macd == 0:
+        return False, ""
+    umbral_0 = rango_macd * 0.15
+
+    macd_serie  = df['MACD']
+    price_serie = df['Close']
+
+    # ── DIVERGENCIA ALCISTA ──
+    # Buscar mínimos del MACD por debajo de -umbral_0
+    mins = encontrar_swings(macd_serie, es_minimo=True, min_dist=min_swing_sep)
+    mins_validos = [i for i in mins if macd_serie.iloc[i] < -umbral_0]
+
+    if len(mins_validos) >= 2:
+        # Tomar los dos últimos mínimos válidos
+        p1, p2 = mins_validos[-2], mins_validos[-1]
+        # Verificar separación mínima
+        if (p2 - p1) >= min_velas:
+            macd_p1 = macd_serie.iloc[p1]
+            macd_p2 = macd_serie.iloc[p2]
+            price_p1 = price_serie.iloc[p1]
+            price_p2 = price_serie.iloc[p2]
+            # Precio hace mínimo más bajo, MACD hace mínimo más alto
+            if price_p2 < price_p1 and macd_p2 > macd_p1:
+                fuerza = round(abs(macd_p2 - macd_p1) / rango_macd * 100, 1)
+                return True, f"DIV ALCISTA 📈 ({fuerza}%)"
+
+    # ── DIVERGENCIA BAJISTA ──
+    # Buscar máximos del MACD por encima de +umbral_0
+    maxs = encontrar_swings(macd_serie, es_minimo=False, min_dist=min_swing_sep)
+    maxs_validos = [i for i in maxs if macd_serie.iloc[i] > umbral_0]
+
+    if len(maxs_validos) >= 2:
+        p1, p2 = maxs_validos[-2], maxs_validos[-1]
+        if (p2 - p1) >= min_velas:
+            macd_p1 = macd_serie.iloc[p1]
+            macd_p2 = macd_serie.iloc[p2]
+            price_p1 = price_serie.iloc[p1]
+            price_p2 = price_serie.iloc[p2]
+            # Precio hace máximo más alto, MACD hace máximo más bajo
+            if price_p2 > price_p1 and macd_p2 < macd_p1:
+                fuerza = round(abs(macd_p1 - macd_p2) / rango_macd * 100, 1)
+                return True, f"DIV BAJISTA 📉 ({fuerza}%)"
 
     return False, ""
 
@@ -559,7 +615,7 @@ if lanzar:
 
         if filtro_diverg:
             for tf_key, tf_name in [('D', 'DIARIO'), ('W', 'SEMANAL'), ('M', 'MENSUAL')]:
-                es_div, tipo_div = check_divergencia(pack[tf_key], ventana=10)
+                es_div, tipo_div = check_divergencia(pack[tf_key], timeframe=tf_key)
                 if es_div:
                     es_alc_div = "ALCISTA" in tipo_div
                     if (es_alc_div and dir_alcista) or (not es_alc_div and dir_bajista):
@@ -670,6 +726,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
