@@ -467,18 +467,15 @@ def super_buscador(pack):
 def check_macd_estado(df):
     """
     Devuelve el estado del MACD: 'alcista', 'bajista' o 'neutro'
-    Alcista:  MACD > Signal Y histograma subiendo (MACD - Signal mayor que vela anterior)
-    Bajista:  MACD < Signal Y histograma bajando
+    Alcista: línea MACD por encima de la Signal
+    Bajista: línea MACD por debajo de la Signal
     """
-    if 'MACD' not in df.columns or 'Signal' not in df.columns or len(df) < 2:
+    if 'MACD' not in df.columns or 'Signal' not in df.columns or len(df) < 1:
         return 'neutro'
     curr = df.iloc[-1]
-    prev = df.iloc[-2]
-    hist_curr = curr['MACD'] - curr['Signal']
-    hist_prev = prev['MACD'] - prev['Signal']
-    if curr['MACD'] > curr['Signal'] and hist_curr > hist_prev:
+    if curr['MACD'] > curr['Signal']:
         return 'alcista'
-    if curr['MACD'] < curr['Signal'] and hist_curr < hist_prev:
+    if curr['MACD'] < curr['Signal']:
         return 'bajista'
     return 'neutro'
 
@@ -809,6 +806,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
