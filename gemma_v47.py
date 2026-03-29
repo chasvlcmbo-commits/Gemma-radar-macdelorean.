@@ -373,65 +373,77 @@ def encontrar_swings(serie, es_minimo=True, min_dist=3):
 
 def check_divergencia(df, timeframe="D"):
     """
-    Divergencia real basada en swing points del MACD con:
-    - Distancia mínima entre puntos según timeframe (D=40v, W=26v, M=12v)
-    - MACD alejado de 0 en ambos puntos
-    - Comparación precio vs MACD en los swings
+    Divergencia real basada en swing points del MACD.
+    Devuelve: (encontrada, tipo, duracion_str, antiguedad_str)
     """
     if 'MACD' not in df.columns or 'Close' not in df.columns:
-        return False, ""
+        return False, "", "", ""
 
-    # Distancia mínima en velas según timeframe
-    # D: ~40 velas = 2 meses | W: ~26 velas = 6 meses | M: ~12 velas = 1 año
     min_velas = {"D": 40, "W": 26, "M": 12}.get(timeframe, 40)
-    min_swing_sep = 3  # separación mínima para detectar swing point
+    min_swing_sep = 3
 
-    # Umbral de distancia a 0 — mínimo 15% del rango total del MACD
     rango_macd = df['MACD'].max() - df['MACD'].min()
     if rango_macd == 0:
-        return False, ""
+        return False, "", "", ""
     umbral_0 = rango_macd * 0.15
 
     macd_serie  = df['MACD']
     price_serie = df['Close']
+    fecha_serie = df.index
+
+    def formatear_duracion(velas, tf):
+        if tf == "D":
+            meses = round(velas / 21)
+            return f"{meses} meses"
+        elif tf == "W":
+            meses = round(velas * 7 / 30)
+            return f"{meses} meses"
+        else:
+            return f"{velas} meses"
+
+    def formatear_antiguedad(pos_ultimo, total, tf):
+        velas_atras = total - 1 - pos_ultimo
+        if tf == "D":
+            if velas_atras == 0: return "Hoy"
+            if velas_atras < 5:  return f"Hace {velas_atras} días"
+            semanas = round(velas_atras / 5)
+            return f"Hace {semanas} sem"
+        elif tf == "W":
+            if velas_atras == 0: return "Esta semana"
+            return f"Hace {velas_atras} sem"
+        else:
+            if velas_atras == 0: return "Este mes"
+            return f"Hace {velas_atras} meses"
+
+    total = len(df)
 
     # ── DIVERGENCIA ALCISTA ──
-    # Buscar mínimos del MACD por debajo de -umbral_0
     mins = encontrar_swings(macd_serie, es_minimo=True, min_dist=min_swing_sep)
     mins_validos = [i for i in mins if macd_serie.iloc[i] < -umbral_0]
 
     if len(mins_validos) >= 2:
-        # Tomar los dos últimos mínimos válidos
         p1, p2 = mins_validos[-2], mins_validos[-1]
-        # Verificar separación mínima
         if (p2 - p1) >= min_velas:
-            macd_p1 = macd_serie.iloc[p1]
-            macd_p2 = macd_serie.iloc[p2]
-            price_p1 = price_serie.iloc[p1]
-            price_p2 = price_serie.iloc[p2]
-            # Precio hace mínimo más bajo, MACD hace mínimo más alto
-            if price_p2 < price_p1 and macd_p2 > macd_p1:
-                fuerza = round(abs(macd_p2 - macd_p1) / rango_macd * 100, 1)
-                return True, f"DIV ALCISTA 📈 ({fuerza}%)"
+            if price_serie.iloc[p2] < price_serie.iloc[p1] and macd_serie.iloc[p2] > macd_serie.iloc[p1]:
+                fuerza    = round(abs(macd_serie.iloc[p2] - macd_serie.iloc[p1]) / rango_macd * 100, 1)
+                duracion  = formatear_duracion(p2 - p1, timeframe)
+                antiguedad = formatear_antiguedad(p2, total, timeframe)
+                return True, f"DIV ALCISTA 📈 ({fuerza}%)", duracion, antiguedad
 
     # ── DIVERGENCIA BAJISTA ──
-    # Buscar máximos del MACD por encima de +umbral_0
     maxs = encontrar_swings(macd_serie, es_minimo=False, min_dist=min_swing_sep)
     maxs_validos = [i for i in maxs if macd_serie.iloc[i] > umbral_0]
 
     if len(maxs_validos) >= 2:
         p1, p2 = maxs_validos[-2], maxs_validos[-1]
         if (p2 - p1) >= min_velas:
-            macd_p1 = macd_serie.iloc[p1]
-            macd_p2 = macd_serie.iloc[p2]
-            price_p1 = price_serie.iloc[p1]
-            price_p2 = price_serie.iloc[p2]
-            # Precio hace máximo más alto, MACD hace máximo más bajo
-            if price_p2 > price_p1 and macd_p2 < macd_p1:
-                fuerza = round(abs(macd_p1 - macd_p2) / rango_macd * 100, 1)
-                return True, f"DIV BAJISTA 📉 ({fuerza}%)"
+            if price_serie.iloc[p2] > price_serie.iloc[p1] and macd_serie.iloc[p2] < macd_serie.iloc[p1]:
+                fuerza    = round(abs(macd_serie.iloc[p1] - macd_serie.iloc[p2]) / rango_macd * 100, 1)
+                duracion  = formatear_duracion(p2 - p1, timeframe)
+                antiguedad = formatear_antiguedad(p2, total, timeframe)
+                return True, f"DIV BAJISTA 📉 ({fuerza}%)", duracion, antiguedad
 
-    return False, ""
+    return False, "", "", ""
 
 
 def super_buscador(pack):
@@ -615,11 +627,18 @@ if lanzar:
 
         if filtro_diverg:
             for tf_key, tf_name in [('D', 'DIARIO'), ('W', 'SEMANAL'), ('M', 'MENSUAL')]:
-                es_div, tipo_div = check_divergencia(pack[tf_key], timeframe=tf_key)
+                es_div, tipo_div, duracion, antiguedad = check_divergencia(pack[tf_key], timeframe=tf_key)
                 if es_div:
                     es_alc_div = "ALCISTA" in tipo_div
                     if (es_alc_div and dir_alcista) or (not es_alc_div and dir_bajista):
-                        res_diverg.append({"Ticker": ticker, "TF": tf_name, "Tipo": tipo_div, "Precio": precio})
+                        res_diverg.append({
+                            "Ticker":     ticker,
+                            "TF":         tf_name,
+                            "Tipo":       tipo_div,
+                            "Duración":   duracion,
+                            "Formada":    antiguedad,
+                            "Precio":     precio
+                        })
                         ph_div.dataframe(pd.DataFrame(res_diverg), use_container_width=True)
 
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
@@ -726,6 +745,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
