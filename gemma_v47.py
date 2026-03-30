@@ -553,7 +553,8 @@ with st.sidebar:
     filtro_premium   = st.checkbox("💎 Operaciones Premium (M+W+D)", value=True,  key="f1")
     filtro_velas     = st.checkbox("🕯️ Velas de Engaño (W/M)",       value=True,  key="f2")
     filtro_diverg    = st.checkbox("📐 Divergencias MACD",            value=False, key="f3")
-    filtro_macd_combo = st.checkbox("📡 Radar MACD por Timeframe",    value=False, key="f4")
+    filtro_macd_combo  = st.checkbox("📡 Radar MACD por Timeframe",    value=False, key="f4")
+    filtro_confluencia = st.checkbox("💥 Confluencia Div + Vela",       value=True,  key="f5")
 
     if filtro_macd_combo:
         st.markdown("**Estado MACD — selecciona cada TF:**")
@@ -610,7 +611,8 @@ if lanzar:
     res_prem   = []
     res_velas  = []
     res_diverg = []
-    res_macd   = []
+    res_macd        = []
+    res_confluencia = []
 
     progress_bar = st.progress(0)
     status_text  = st.empty()
@@ -689,25 +691,63 @@ if lanzar:
                     "Precio":   precio
                 })
 
+        # ── CONFLUENCIA: Divergencia + Vela de Engaño mismo TF ──
+        if filtro_confluencia:
+            for tf_key, tf_name in [('W', 'SEMANAL'), ('M', 'MENSUAL')]:
+                # Buscar vela de engaño en este TF
+                for j in range(4):
+                    es_vela, tipo_vela, k_vela, stop_vela = check_vela_engano(pack[tf_key], idx=-1-j)
+                    if not es_vela:
+                        continue
+                    # Buscar divergencia en mismo TF con misma dirección
+                    es_div, tipo_div, duracion, antiguedad = check_divergencia(pack[tf_key], timeframe=tf_key)
+                    if not es_div:
+                        break
+                    # Verificar que apuntan en la misma dirección
+                    vela_alc = "ALCISTA" in tipo_vela
+                    div_alc  = "ALCISTA" in tipo_div
+                    if vela_alc != div_alc:
+                        break
+                    # Filtro dirección global
+                    if vela_alc and not dir_alcista: break
+                    if not vela_alc and not dir_bajista: break
+
+                    icono = "🚀" if vela_alc else "💣"
+                    res_confluencia.append({
+                        "Ticker":      ticker,
+                        "TF":          tf_name,
+                        "Dirección":   f"{'🟢 ALCISTA' if vela_alc else '🔴 BAJISTA'}",
+                        "Señal":       f"{icono} DIV + VELA ENGAÑO",
+                        "Div Fuerza":  tipo_div.split("(")[1].replace(")","") if "(" in tipo_div else "-",
+                        "Div Dur.":    duracion,
+                        "Vela Stoch":  round(k_vela, 1),
+                        "Antigüedad":  f"Hace {j} {'Mes' if tf_key=='M' else 'Sem'}",
+                        "Precio":      precio,
+                        "Stop Ref":    round(float(stop_vela), 2)
+                    })
+                    break  # solo una confluencia por TF por ticker
+
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
     progress_bar.empty()
     status_text.success("✅ ESCANEO COMPLETADO.")
     st.balloons()
 
     st.markdown("---")
-    m1, m2, m3, m4, m5 = st.columns(5)
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
     m1.metric("🎯 Escaneados",       len(master_list))
     m2.metric("💎 Premium",          len(res_prem))
     m3.metric("🕯️ Velas Engaño",    len(res_velas))
     m4.metric("📐 Divergencias",     len(res_diverg))
     m5.metric("📡 MACD Combo",       len(res_macd))
+    m6.metric("💥 Confluencia",      len(res_confluencia))
     st.markdown("---")
 
     tab_labels = []
     if filtro_premium:    tab_labels.append(f"💎 PREMIUM ({len(res_prem)})")
     if filtro_velas:      tab_labels.append(f"🕯️ VELAS ({len(res_velas)})")
     if filtro_diverg:     tab_labels.append(f"📐 DIVERGENCIAS ({len(res_diverg)})")
-    if filtro_macd_combo: tab_labels.append(f"📡 MACD COMBO ({len(res_macd)})")
+    if filtro_macd_combo:   tab_labels.append(f"📡 MACD COMBO ({len(res_macd)})")
+    if filtro_confluencia:  tab_labels.append(f"💥 CONFLUENCIA ({len(res_confluencia)})")
 
     tabs = st.tabs(tab_labels)
     tab_idx = 0
@@ -761,6 +801,23 @@ if lanzar:
                 st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "macd_combo.csv", "text/csv")
             else:
                 st.info("Ningún activo cumple la combinación MACD seleccionada.")
+        tab_idx += 1
+
+    if filtro_confluencia:
+        with tabs[tab_idx]:
+            if res_confluencia:
+                df_out = pd.DataFrame(res_confluencia)
+                alc = df_out[df_out['Dirección'].str.contains("ALCISTA")]
+                baj = df_out[df_out['Dirección'].str.contains("BAJISTA")]
+                if not alc.empty:
+                    st.markdown("#### 🚀 CONFLUENCIAS ALCISTAS")
+                    st.dataframe(alc, use_container_width=True)
+                if not baj.empty:
+                    st.markdown("#### 💣 CONFLUENCIAS BAJISTAS")
+                    st.dataframe(baj, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "confluencia.csv", "text/csv")
+            else:
+                st.info("No se han detectado confluencias Divergencia + Vela de Engaño.")
 
 else:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -806,6 +863,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
