@@ -492,6 +492,103 @@ def check_punto_b(df, timeframe="D"):
 
     if mejor:
         return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
+
+    # ══════════════════════════════════════════
+    # ESTRUCTURA BAJISTA: A(max) -> B(min) -> C(max)
+    # ══════════════════════════════════════════
+    mejor = None
+
+    for ia in range(3, nw - min_velas - 3):
+        # A debe ser máximo local
+        if not (h_win.iloc[ia] > h_win.iloc[ia-1] and
+                h_win.iloc[ia] > h_win.iloc[ia-2] and
+                h_win.iloc[ia] > h_win.iloc[ia+1] and
+                h_win.iloc[ia] > h_win.iloc[ia+2]):
+            continue
+
+        precio_a = h_win.iloc[ia]
+
+        # Buscar B: mínimo local DESPUÉS de A
+        for ib in range(ia + 3, nw - min_velas//2 - 3):
+            if not (l_win.iloc[ib] < l_win.iloc[ib-1] and
+                    l_win.iloc[ib] < l_win.iloc[ib-2] and
+                    l_win.iloc[ib] < l_win.iloc[ib+1] and
+                    l_win.iloc[ib] < l_win.iloc[ib+2]):
+                continue
+
+            nivel_b = l_win.iloc[ib]
+
+            # B debe estar por debajo de A
+            if nivel_b >= precio_a:
+                continue
+
+            # Buscar C: máximo local DESPUÉS de B
+            for ic in range(ib + 3, nw - 2):
+                if not (h_win.iloc[ic] > h_win.iloc[ic-1] and
+                        h_win.iloc[ic] > h_win.iloc[ic-2] and
+                        h_win.iloc[ic] > h_win.iloc[ic+1] and
+                        h_win.iloc[ic] > h_win.iloc[ic+2]):
+                    continue
+
+                precio_c = h_win.iloc[ic]
+
+                # C debe estar por encima de B
+                if precio_c <= nivel_b:
+                    continue
+
+                # Verificar tiempo de formación A->C
+                duracion_ac = ic - ia
+                if not (min_velas <= duracion_ac <= max_velas):
+                    continue
+
+                # Solo estructuras recientes
+                velas_desde_c = nw - 1 - ic
+                if velas_desde_c > max_velas // 2:
+                    continue
+
+                precio_actual = close.iloc[-1]
+
+                # Clasificar oscilación bajista
+                if precio_c > precio_a:
+                    tipo_osc = "🟢 BUENA OSC. BAJISTA"
+                    max_abs  = precio_c
+                else:
+                    tipo_osc = "🟡 MALA OSC. BAJISTA"
+                    max_abs  = precio_a
+
+                # Altura y targets bajistas
+                altura = max_abs - nivel_b
+                tp1    = round(nivel_b - altura * 1.618, 2)
+                tp2    = round(nivel_b - altura * 1.0,   2)
+
+                # Precio rompiendo B a la baja o muy cerca
+                roto_b  = precio_actual <= nivel_b
+                cerca_b = precio_actual <= nivel_b * 1.02
+
+                if not cerca_b:
+                    continue
+
+                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
+
+                mejor = {
+                    "tipo":           tipo_osc,
+                    "nivel_b":        round(nivel_b, 2),
+                    "precio_a":       round(precio_a, 2),
+                    "precio_c":       round(precio_c, 2),
+                    "tp1":            tp1,
+                    "tp2":            tp2,
+                    "estado_b":       estado,
+                    "duracion_velas": duracion_ac,
+                    "velas_desde_c":  velas_desde_c,
+                }
+                break
+            if mejor:
+                break
+        if mejor:
+            break
+
+    if mejor:
+        return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
     return False, "", 0, 0, 0, {}
 
 
@@ -947,7 +1044,8 @@ if lanzar:
                     continue
                 es_pb, tipo_pb, nivel_b, tp1, tp2, info = check_punto_b(df_tf, timeframe=tf_key)
                 if es_pb:
-                    if ("BUENA" in tipo_pb and dir_alcista) or ("MALA" in tipo_pb and dir_alcista):
+                    es_bajista_pb = "BAJISTA" in tipo_pb
+                    if (not es_bajista_pb and dir_alcista) or (es_bajista_pb and dir_bajista):
                         res_puntob.append({
                             "Ticker":        ticker,
                             "TF":            tf_name,
@@ -1083,12 +1181,23 @@ if lanzar:
                 df_out = pd.DataFrame(res_puntob)
                 buenas = df_out[df_out['Tipo'].str.contains("BUENA")]
                 malas  = df_out[df_out['Tipo'].str.contains("MALA")]
-                if not buenas.empty:
-                    st.markdown("#### 🟢 BUENA OSCILACIÓN — C menor que A")
-                    st.dataframe(buenas, use_container_width=True)
-                if not malas.empty:
-                    st.markdown("#### 🟡 MALA OSCILACIÓN — C mayor que A")
-                    st.dataframe(malas, use_container_width=True)
+                alc_buenas = df_out[df_out['Tipo'].str.contains("BUENA") & ~df_out['Tipo'].str.contains("BAJISTA")]
+                alc_malas  = df_out[df_out['Tipo'].str.contains("MALA")  & ~df_out['Tipo'].str.contains("BAJISTA")]
+                baj_buenas = df_out[df_out['Tipo'].str.contains("BUENA OSCILACIÓN BAJISTA|BUENA OSC. BAJISTA")]
+                baj_malas  = df_out[df_out['Tipo'].str.contains("MALA OSCILACIÓN BAJISTA|MALA OSC. BAJISTA")]
+
+                if not alc_buenas.empty:
+                    st.markdown("#### 🟢 BUENA OSCILACIÓN ALCISTA — C < A")
+                    st.dataframe(alc_buenas, use_container_width=True)
+                if not alc_malas.empty:
+                    st.markdown("#### 🟡 MALA OSCILACIÓN ALCISTA — C > A")
+                    st.dataframe(alc_malas, use_container_width=True)
+                if not baj_buenas.empty:
+                    st.markdown("#### 🔴 BUENA OSCILACIÓN BAJISTA — C > A")
+                    st.dataframe(baj_buenas, use_container_width=True)
+                if not baj_malas.empty:
+                    st.markdown("#### 🟠 MALA OSCILACIÓN BAJISTA — C < A")
+                    st.dataframe(baj_malas, use_container_width=True)
                 st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "punto_b.csv", "text/csv")
             else:
                 st.info("No se han detectado módulos de arranque válidos.")
@@ -1137,6 +1246,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
