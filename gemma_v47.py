@@ -310,7 +310,7 @@ UNIVERSO = {
 # 2. INTELIGENCIA TÉCNICA (sin cambios respecto a v23)
 # ==============================================================================
 
-def procesar_datos(ticker):
+def procesar_datos(ticker, incluir_4h=False):
     try:
         df_d = yf.download(ticker, period="1y",  interval="1d",  progress=False, auto_adjust=True)
         df_w = yf.download(ticker, period="3y",  interval="1wk", progress=False, auto_adjust=True)
@@ -323,7 +323,25 @@ def procesar_datos(ticker):
         if isinstance(df_w.columns, pd.MultiIndex): df_w = df_w.xs(ticker, axis=1, level=1)
         if isinstance(df_m.columns, pd.MultiIndex): df_m = df_m.xs(ticker, axis=1, level=1)
 
-        for df in [df_d, df_w, df_m]:
+        dfs = [df_d, df_w, df_m]
+
+        # 4h solo si se necesita (evita peticiones extra innecesarias)
+        df_4h = pd.DataFrame()
+        if incluir_4h:
+            try:
+                df_4h = yf.download(ticker, period="60d", interval="1h", progress=False, auto_adjust=True)
+                if isinstance(df_4h.columns, pd.MultiIndex): df_4h = df_4h.xs(ticker, axis=1, level=1)
+                # Resamplear 1h a 4h
+                df_4h = df_4h.resample('4h').agg({
+                    'Open': 'first', 'High': 'max', 'Low': 'min',
+                    'Close': 'last', 'Volume': 'sum'
+                }).dropna()
+                dfs.append(df_4h)
+            except:
+                df_4h = pd.DataFrame()
+
+        for df in dfs:
+            if df.empty: continue
             macd = df.ta.macd(fast=12, slow=26, signal=9)
             if macd is not None:
                 df['MACD']   = macd['MACD_12_26_9']
@@ -333,9 +351,148 @@ def procesar_datos(ticker):
                 if stoch is not None:
                     df['K'] = stoch['STOCHk_14_3_3']
 
-        return {'D': df_d, 'W': df_w, 'M': df_m}
+        return {'D': df_d, 'W': df_w, 'M': df_m, '4H': df_4h}
     except:
         return None
+
+
+def check_punto_b(df, timeframe="D"):
+    """
+    Detecta módulo de arranque (Punto B) en acción del precio.
+
+    Busca la estructura A -> B -> C donde:
+    - A = primer mínimo
+    - B = máximo entre A y C (nivel de ruptura)
+    - C = segundo mínimo
+    - El precio actual ha roto o está cerca de romper B
+
+    Tiempos válidos de formación (A a C):
+    - 4H:  35 a 90 velas
+    - D:   40 a 60 velas
+    - W:   13 a 30 velas
+    - M:   7  a 12 velas
+
+    Buena oscilación: C < A
+    Mala oscilación:  C > A
+
+    Devuelve: (encontrado, tipo, nivel_b, tp1, tp2, info_dict)
+    """
+    min_velas = {"4H": 35, "D": 40, "W": 13, "M": 7}.get(timeframe, 40)
+    max_velas = {"4H": 90, "D": 60, "W": 30, "M": 12}.get(timeframe, 60)
+
+    if df is None or df.empty or len(df) < min_velas + 10:
+        return False, "", 0, 0, 0, {}
+
+    close  = df['Close']
+    high   = df['High']
+    low    = df['Low']
+    n      = len(df)
+
+    # Buscar estructura A-B-C en ventana reciente
+    # Ventana de búsqueda: últimas max_velas*2 velas
+    ventana = min(n - 5, max_velas * 2)
+    df_win  = df.iloc[-ventana:]
+    c_win   = df_win['Close']
+    l_win   = df_win['Low']
+    h_win   = df_win['High']
+    nw      = len(df_win)
+
+    mejor = None
+
+    # Buscar todos los mínimos locales como candidatos a A
+    for ia in range(3, nw - min_velas - 3):
+        # A debe ser mínimo local
+        if not (l_win.iloc[ia] < l_win.iloc[ia-1] and
+                l_win.iloc[ia] < l_win.iloc[ia-2] and
+                l_win.iloc[ia] < l_win.iloc[ia+1] and
+                l_win.iloc[ia] < l_win.iloc[ia+2]):
+            continue
+
+        precio_a = l_win.iloc[ia]
+
+        # Buscar B: máximo local DESPUÉS de A
+        for ib in range(ia + 3, nw - min_velas//2 - 3):
+            if not (h_win.iloc[ib] > h_win.iloc[ib-1] and
+                    h_win.iloc[ib] > h_win.iloc[ib-2] and
+                    h_win.iloc[ib] > h_win.iloc[ib+1] and
+                    h_win.iloc[ib] > h_win.iloc[ib+2]):
+                continue
+
+            nivel_b = h_win.iloc[ib]
+
+            # B debe estar por encima de A
+            if nivel_b <= precio_a:
+                continue
+
+            # Buscar C: mínimo local DESPUÉS de B
+            for ic in range(ib + 3, nw - 2):
+                if not (l_win.iloc[ic] < l_win.iloc[ic-1] and
+                        l_win.iloc[ic] < l_win.iloc[ic-2] and
+                        l_win.iloc[ic] < l_win.iloc[ic+1] and
+                        l_win.iloc[ic] < l_win.iloc[ic+2]):
+                    continue
+
+                precio_c = l_win.iloc[ic]
+
+                # C debe estar por debajo de B
+                if precio_c >= nivel_b:
+                    continue
+
+                # Verificar tiempo de formación A->C
+                duracion_ac = ic - ia
+                if not (min_velas <= duracion_ac <= max_velas):
+                    continue
+
+                # Verificar que precio actual está cerca o por encima de B
+                precio_actual = close.iloc[-1]
+
+                # Solo nos interesan estructuras recientes: C en últimas max_velas/2 velas
+                velas_desde_c = nw - 1 - ic
+                if velas_desde_c > max_velas // 2:
+                    continue
+
+                # Clasificar oscilación
+                if precio_c < precio_a:
+                    tipo_osc = "🟢 BUENA OSCILACIÓN"
+                    min_abs  = precio_c
+                else:
+                    tipo_osc = "🟡 MALA OSCILACIÓN"
+                    min_abs  = precio_a
+
+                # Calcular altura del módulo y targets
+                altura   = nivel_b - min_abs
+                tp1      = round(nivel_b + altura * 1.618, 2)
+                tp2      = round(nivel_b + altura * 1.0,   2)
+
+                # Precio rompiendo B o muy cerca (dentro del 2%)
+                roto_b    = precio_actual >= nivel_b
+                cerca_b   = precio_actual >= nivel_b * 0.98
+
+                if not cerca_b:
+                    continue
+
+                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
+
+                mejor = {
+                    "tipo":          tipo_osc,
+                    "nivel_b":       round(nivel_b, 2),
+                    "precio_a":      round(precio_a, 2),
+                    "precio_c":      round(precio_c, 2),
+                    "tp1":           tp1,
+                    "tp2":           tp2,
+                    "estado_b":      estado,
+                    "duracion_velas": duracion_ac,
+                    "velas_desde_c": velas_desde_c,
+                }
+                break  # tomamos el primer C válido para este B
+            if mejor:
+                break
+        if mejor:
+            break
+
+    if mejor:
+        return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
+    return False, "", 0, 0, 0, {}
 
 
 def check_vela_engano(df, idx=-1):
@@ -578,6 +735,16 @@ with st.sidebar:
     filtro_macd_combo  = st.checkbox("📡 Radar MACD por Timeframe",    value=False, key="f4")
     filtro_confluencia = st.checkbox("💥 Confluencia Div + Vela",       value=True,  key="f5")
     filtro_emas        = st.checkbox("📈 Cruce EMA 50/200",              value=False, key="f6")
+    filtro_puntob      = st.checkbox("🔵 Módulo de Arranque (Punto B)",  value=False, key="f7")
+
+    if filtro_puntob:
+        st.markdown("**Timeframes Punto B:**")
+        pb_4h = st.checkbox("4H", value=False, key="pb4h")
+        pb_d  = st.checkbox("Diario",  value=True,  key="pbd")
+        pb_w  = st.checkbox("Semanal", value=True,  key="pbw")
+        pb_m  = st.checkbox("Mensual", value=False, key="pbm")
+    else:
+        pb_4h = pb_d = pb_w = pb_m = False
 
     if filtro_macd_combo:
         st.markdown("**Estado MACD — selecciona cada TF:**")
@@ -621,7 +788,7 @@ if lanzar:
     if not indices_seleccionados:
         st.error("⚠️ Selecciona al menos un índice.")
         st.stop()
-    if not (filtro_premium or filtro_velas or filtro_diverg or filtro_macd_combo or filtro_confluencia or filtro_emas):
+    if not (filtro_premium or filtro_velas or filtro_diverg or filtro_macd_combo or filtro_confluencia or filtro_emas or filtro_puntob):
         st.error("⚠️ Activa al menos un filtro de búsqueda.")
         st.stop()
 
@@ -637,6 +804,7 @@ if lanzar:
     res_macd        = []
     res_confluencia = []
     res_emas        = []
+    res_puntob      = []
 
     progress_bar = st.progress(0)
     status_text  = st.empty()
@@ -650,7 +818,7 @@ if lanzar:
         status_text.text(f"🔎 {ticker}  [{i+1}/{len(master_list)}]")
         time.sleep(0.05)
 
-        pack = procesar_datos(ticker)
+        pack = procesar_datos(ticker, incluir_4h=(filtro_puntob and pb_4h))
         if pack is None:
             continue
 
@@ -765,13 +933,43 @@ if lanzar:
                             "Precio":  precio
                         })
 
+        # ── MÓDULO DE ARRANQUE — PUNTO B ──
+        if filtro_puntob:
+            tfs_pb = []
+            if pb_4h and not pack['4H'].empty: tfs_pb.append(('4H', '4 HORAS'))
+            if pb_d:  tfs_pb.append(('D', 'DIARIO'))
+            if pb_w:  tfs_pb.append(('W', 'SEMANAL'))
+            if pb_m:  tfs_pb.append(('M', 'MENSUAL'))
+
+            for tf_key, tf_name in tfs_pb:
+                df_tf = pack.get(tf_key)
+                if df_tf is None or (hasattr(df_tf, 'empty') and df_tf.empty):
+                    continue
+                es_pb, tipo_pb, nivel_b, tp1, tp2, info = check_punto_b(df_tf, timeframe=tf_key)
+                if es_pb:
+                    if ("BUENA" in tipo_pb and dir_alcista) or ("MALA" in tipo_pb and dir_alcista):
+                        res_puntob.append({
+                            "Ticker":        ticker,
+                            "TF":            tf_name,
+                            "Tipo":          tipo_pb,
+                            "Estado B":      info["estado_b"],
+                            "Nivel B":       info["nivel_b"],
+                            "Precio A":      info["precio_a"],
+                            "Precio C":      info["precio_c"],
+                            "TP1 (161.8%)":  tp1,
+                            "TP2 (100%)":    tp2,
+                            "Duración":      f"{info['duracion_velas']} velas",
+                            "Velas desde C": info["velas_desde_c"],
+                            "Precio":        precio
+                        })
+
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
     progress_bar.empty()
     status_text.success("✅ ESCANEO COMPLETADO.")
     st.balloons()
 
     st.markdown("---")
-    m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
     m1.metric("🎯 Escaneados",       len(master_list))
     m2.metric("💎 Premium",          len(res_prem))
     m3.metric("🕯️ Velas Engaño",    len(res_velas))
@@ -779,6 +977,7 @@ if lanzar:
     m5.metric("📡 MACD Combo",       len(res_macd))
     m6.metric("💥 Confluencia",      len(res_confluencia))
     m7.metric("📈 EMA Cross",        len(res_emas))
+    m8.metric("🔵 Punto B",          len(res_puntob))
     st.markdown("---")
 
     tab_labels = []
@@ -788,6 +987,7 @@ if lanzar:
     if filtro_macd_combo:   tab_labels.append(f"📡 MACD COMBO ({len(res_macd)})")
     if filtro_confluencia:  tab_labels.append(f"💥 CONFLUENCIA ({len(res_confluencia)})")
     if filtro_emas:         tab_labels.append(f"📈 EMA CROSS ({len(res_emas)})")
+    if filtro_puntob:       tab_labels.append(f"🔵 PUNTO B ({len(res_puntob)})")
 
     tabs = st.tabs(tab_labels)
     tab_idx = 0
@@ -875,6 +1075,23 @@ if lanzar:
                 st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "ema_cross.csv", "text/csv")
             else:
                 st.info("No se han detectado cruces de EMA50/200 recientes.")
+        tab_idx += 1
+
+    if filtro_puntob:
+        with tabs[tab_idx]:
+            if res_puntob:
+                df_out = pd.DataFrame(res_puntob)
+                buenas = df_out[df_out['Tipo'].str.contains("BUENA")]
+                malas  = df_out[df_out['Tipo'].str.contains("MALA")]
+                if not buenas.empty:
+                    st.markdown("#### 🟢 BUENA OSCILACIÓN — C menor que A")
+                    st.dataframe(buenas, use_container_width=True)
+                if not malas.empty:
+                    st.markdown("#### 🟡 MALA OSCILACIÓN — C mayor que A")
+                    st.dataframe(malas, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "punto_b.csv", "text/csv")
+            else:
+                st.info("No se han detectado módulos de arranque válidos.")
 
 else:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -920,6 +1137,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
