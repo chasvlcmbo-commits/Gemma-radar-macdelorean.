@@ -464,6 +464,28 @@ def super_buscador(pack):
     return False, "", 0
 
 
+def check_cruce_emas(df, velas=4):
+    """
+    Detecta cruce reciente de EMA50 con EMA200 en las últimas N velas.
+    Golden Cross: EMA50 cruza por encima de EMA200 -> alcista
+    Death Cross:  EMA50 cruza por debajo de EMA200 -> bajista
+    """
+    if len(df) < 205:
+        return False, ""
+    ema50  = df['Close'].ewm(span=50,  adjust=False).mean()
+    ema200 = df['Close'].ewm(span=200, adjust=False).mean()
+
+    # Mirar las últimas N+1 velas para detectar cruce
+    for i in range(1, velas + 1):
+        curr_diff = ema50.iloc[-i]   - ema200.iloc[-i]
+        prev_diff = ema50.iloc[-i-1] - ema200.iloc[-i-1]
+        if prev_diff < 0 and curr_diff > 0:
+            return True, f"✨ GOLDEN CROSS (Hace {i-1} velas)"
+        if prev_diff > 0 and curr_diff < 0:
+            return True, f"💀 DEATH CROSS (Hace {i-1} velas)"
+    return False, ""
+
+
 def check_macd_estado(df):
     """
     Devuelve el estado del MACD: 'alcista', 'bajista' o 'neutro'
@@ -555,6 +577,7 @@ with st.sidebar:
     filtro_diverg    = st.checkbox("📐 Divergencias MACD",            value=False, key="f3")
     filtro_macd_combo  = st.checkbox("📡 Radar MACD por Timeframe",    value=False, key="f4")
     filtro_confluencia = st.checkbox("💥 Confluencia Div + Vela",       value=True,  key="f5")
+    filtro_emas        = st.checkbox("📈 Cruce EMA 50/200",              value=False, key="f6")
 
     if filtro_macd_combo:
         st.markdown("**Estado MACD — selecciona cada TF:**")
@@ -598,7 +621,7 @@ if lanzar:
     if not indices_seleccionados:
         st.error("⚠️ Selecciona al menos un índice.")
         st.stop()
-    if not (filtro_premium or filtro_velas or filtro_diverg or filtro_macd_combo):
+    if not (filtro_premium or filtro_velas or filtro_diverg or filtro_macd_combo or filtro_confluencia or filtro_emas):
         st.error("⚠️ Activa al menos un filtro de búsqueda.")
         st.stop()
 
@@ -613,6 +636,7 @@ if lanzar:
     res_diverg = []
     res_macd        = []
     res_confluencia = []
+    res_emas        = []
 
     progress_bar = st.progress(0)
     status_text  = st.empty()
@@ -727,19 +751,34 @@ if lanzar:
                     })
                     break  # solo una confluencia por TF por ticker
 
+        # ── CRUCE EMA 50/200 ──
+        if filtro_emas:
+            for tf_key, tf_name in [('D', 'DIARIO'), ('W', 'SEMANAL')]:
+                es_cruce, tipo_cruce = check_cruce_emas(pack[tf_key], velas=4)
+                if es_cruce:
+                    es_golden = "GOLDEN" in tipo_cruce
+                    if (es_golden and dir_alcista) or (not es_golden and dir_bajista):
+                        res_emas.append({
+                            "Ticker":  ticker,
+                            "TF":      tf_name,
+                            "Señal":   tipo_cruce,
+                            "Precio":  precio
+                        })
+
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
     progress_bar.empty()
     status_text.success("✅ ESCANEO COMPLETADO.")
     st.balloons()
 
     st.markdown("---")
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
     m1.metric("🎯 Escaneados",       len(master_list))
     m2.metric("💎 Premium",          len(res_prem))
     m3.metric("🕯️ Velas Engaño",    len(res_velas))
     m4.metric("📐 Divergencias",     len(res_diverg))
     m5.metric("📡 MACD Combo",       len(res_macd))
     m6.metric("💥 Confluencia",      len(res_confluencia))
+    m7.metric("📈 EMA Cross",        len(res_emas))
     st.markdown("---")
 
     tab_labels = []
@@ -748,6 +787,7 @@ if lanzar:
     if filtro_diverg:     tab_labels.append(f"📐 DIVERGENCIAS ({len(res_diverg)})")
     if filtro_macd_combo:   tab_labels.append(f"📡 MACD COMBO ({len(res_macd)})")
     if filtro_confluencia:  tab_labels.append(f"💥 CONFLUENCIA ({len(res_confluencia)})")
+    if filtro_emas:         tab_labels.append(f"📈 EMA CROSS ({len(res_emas)})")
 
     tabs = st.tabs(tab_labels)
     tab_idx = 0
@@ -818,6 +858,23 @@ if lanzar:
                 st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "confluencia.csv", "text/csv")
             else:
                 st.info("No se han detectado confluencias Divergencia + Vela de Engaño.")
+        tab_idx += 1
+
+    if filtro_emas:
+        with tabs[tab_idx]:
+            if res_emas:
+                df_out = pd.DataFrame(res_emas)
+                golden = df_out[df_out['Señal'].str.contains("GOLDEN")]
+                death  = df_out[df_out['Señal'].str.contains("DEATH")]
+                if not golden.empty:
+                    st.markdown("#### ✨ GOLDEN CROSS — EMA50 cruza sobre EMA200")
+                    st.dataframe(golden, use_container_width=True)
+                if not death.empty:
+                    st.markdown("#### 💀 DEATH CROSS — EMA50 cruza bajo EMA200")
+                    st.dataframe(death, use_container_width=True)
+                st.download_button("⬇️ Exportar CSV", df_out.to_csv(index=False).encode(), "ema_cross.csv", "text/csv")
+            else:
+                st.info("No se han detectado cruces de EMA50/200 recientes.")
 
 else:
     st.markdown("<br>", unsafe_allow_html=True)
@@ -863,6 +920,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
