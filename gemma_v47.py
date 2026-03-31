@@ -461,6 +461,10 @@ def check_punto_b(df, timeframe="D"):
 
                 # Calcular altura del módulo y targets
                 altura   = nivel_b - min_abs
+                # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
+                pct_min = {"4H": 0.04, "D": 0.05, "W": 0.07, "M": 0.10}.get(timeframe, 0.05)
+                if altura < nivel_b * pct_min:
+                    continue
                 tp1      = round(min_abs + altura * 1.618, 2)
                 tp2      = round(min_abs + altura * 2.0,   2)
 
@@ -581,6 +585,10 @@ def check_punto_b(df, timeframe="D"):
                 tp1    = round(max_abs - altura * 1.618, 2)
                 tp2    = round(max_abs - altura * 2.0,   2)
 
+                # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
+                pct_min = {"4H": 0.04, "D": 0.05, "W": 0.07, "M": 0.10}.get(timeframe, 0.05)
+                if altura < nivel_b * pct_min:
+                    continue
                 # Precio rompiendo B a la baja o muy cerca
                 roto_b  = precio_actual <= nivel_b
                 cerca_b = precio_actual <= nivel_b * 1.02
@@ -1310,6 +1318,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
