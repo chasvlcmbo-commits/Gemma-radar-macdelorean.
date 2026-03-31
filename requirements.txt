@@ -1,4 +1,2 @@
-
 yfinance
-pandas-ta==0.3.14b0
-numpy
+pandas-ta
