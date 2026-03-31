@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -417,6 +418,15 @@ def check_punto_b(df, timeframe="D"):
             continue
         precio_a = l_win.iloc[ia]
 
+        # Verificar que antes de A el precio venía BAJANDO (tendencia previa contraria)
+        # El máximo de las 10-20 velas previas a A debe ser >= 7% superior a A
+        ventana_previa = min(ia, 20)
+        if ventana_previa < 5:
+            continue
+        max_previo = h_win.iloc[ia - ventana_previa: ia].max()
+        if max_previo < precio_a * 1.07:  # no había caída previa significativa
+            continue
+
         for ib in range(ia + 3, nw - min_bc - 5):
             if not es_max_local(h_win, ib):
                 continue
@@ -524,6 +534,15 @@ def check_punto_b(df, timeframe="D"):
         if not es_max_local(h_win, ia):
             continue
         precio_a = h_win.iloc[ia]
+
+        # Verificar que antes de A el precio venía SUBIENDO (tendencia previa contraria)
+        # El mínimo de las 10-20 velas previas a A debe ser <= 7% inferior a A
+        ventana_previa = min(ia, 20)
+        if ventana_previa < 5:
+            continue
+        min_previo = l_win.iloc[ia - ventana_previa: ia].min()
+        if min_previo > precio_a * 0.93:  # no había subida previa significativa
+            continue
 
         for ib in range(ia + 3, nw - min_bc - 5):
             if not es_min_local(l_win, ib):
