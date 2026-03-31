@@ -461,8 +461,8 @@ def check_punto_b(df, timeframe="D"):
 
                 # Calcular altura del módulo y targets
                 altura   = nivel_b - min_abs
-                tp1      = round(nivel_b + altura * 1.618, 2)
-                tp2      = round(nivel_b + altura * 1.0,   2)
+                tp1      = round(min_abs + altura * 1.618, 2)
+                tp2      = round(min_abs + altura * 2.0,   2)
 
                 # Precio rompiendo B o muy cerca (dentro del 2%)
                 roto_b    = precio_actual >= nivel_b
@@ -578,8 +578,8 @@ def check_punto_b(df, timeframe="D"):
 
                 # Altura y targets bajistas
                 altura = max_abs - nivel_b
-                tp1    = round(nivel_b - altura * 1.618, 2)
-                tp2    = round(nivel_b - altura * 1.0,   2)
+                tp1    = round(max_abs - altura * 1.618, 2)
+                tp2    = round(max_abs - altura * 2.0,   2)
 
                 # Precio rompiendo B a la baja o muy cerca
                 roto_b  = precio_actual <= nivel_b
@@ -1118,8 +1118,8 @@ if lanzar:
                             "Nivel B":         info["nivel_b"],
                             "Precio A":        info["precio_a"],
                             "Precio C":        info["precio_c"],
-                            "TP1 (161.8%)":    tp1,
-                            "TP2 (100%)":      tp2,
+                            "TP1 (161.8%)": tp1,
+                            "TP2 (200%)":   tp2,
                             "Duracion modulo": duracion_txt,
                             "Desde C":         desde_c_txt,
                             "Precio":          precio
@@ -1310,6 +1310,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
