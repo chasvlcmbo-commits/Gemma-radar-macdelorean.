@@ -471,6 +471,26 @@ def check_punto_b(df, timeframe="D"):
                 if not cerca_b:
                     continue
 
+                # ── FILTRO MADUREZ ALCISTA ──
+                if roto_b:
+                    # Contar velas desde que rompió B (desde C hacia adelante)
+                    velas_tras_ruptura = 0
+                    for k_idx in range(ic + 1, nw):
+                        if c_win.iloc[k_idx] >= nivel_b:
+                            velas_tras_ruptura = nw - k_idx
+                            break
+                    # Descartar si lleva más de 5 velas desde la ruptura
+                    if velas_tras_ruptura > 5:
+                        continue
+                    # Descartar si precio ya superó TP1
+                    if precio_actual >= tp1:
+                        continue
+                    # Descartar si precio retrocedió más del 50% de la altura por debajo de B
+                    precio_minimo_tras_b = min(c_win.iloc[ic+1:].values) if ic+1 < nw else precio_actual
+                    nivel_invalidacion = nivel_b - (altura * 0.5)
+                    if precio_minimo_tras_b < nivel_invalidacion:
+                        continue
+
                 estado = "✅ ROTO" if roto_b else "⚡ CERCA"
 
                 mejor = {
@@ -567,6 +587,26 @@ def check_punto_b(df, timeframe="D"):
 
                 if not cerca_b:
                     continue
+
+                # ── FILTRO MADUREZ BAJISTA ──
+                if roto_b:
+                    # Contar velas desde que rompió B
+                    velas_tras_ruptura = 0
+                    for k_idx in range(ic + 1, nw):
+                        if h_win.iloc[k_idx] <= nivel_b:
+                            velas_tras_ruptura = nw - k_idx
+                            break
+                    # Descartar si lleva más de 5 velas desde la ruptura
+                    if velas_tras_ruptura > 5:
+                        continue
+                    # Descartar si precio ya bajó de TP1
+                    if precio_actual <= tp1:
+                        continue
+                    # Descartar si precio rebotó más del 50% de la altura por encima de B
+                    precio_maximo_tras_b = max(h_win.iloc[ic+1:].values) if ic+1 < nw else precio_actual
+                    nivel_invalidacion = nivel_b + (altura * 0.5)
+                    if precio_maximo_tras_b > nivel_invalidacion:
+                        continue
 
                 estado = "✅ ROTO" if roto_b else "⚡ CERCA"
 
@@ -1046,19 +1086,43 @@ if lanzar:
                 if es_pb:
                     es_bajista_pb = "BAJISTA" in tipo_pb
                     if (not es_bajista_pb and dir_alcista) or (es_bajista_pb and dir_bajista):
+                        def velas_a_tiempo(v, tf):
+                            if tf == "4H":
+                                horas = v * 4
+                                if horas < 24: return f"{horas}h"
+                                dias = horas // 24
+                                return f"{dias} dia{'s' if dias>1 else ''}"
+                            elif tf == "D":
+                                if v <= 1:  return "Hoy"
+                                if v < 5:   return f"{v} dias"
+                                sem = v // 5
+                                return f"{sem} semana{'s' if sem>1 else ''}"
+                            elif tf == "W":
+                                if v <= 1:  return "Esta semana"
+                                if v < 4:   return f"{v} semanas"
+                                mes = round(v * 7 / 30)
+                                return f"{mes} mes{'es' if mes>1 else ''}"
+                            elif tf == "M":
+                                if v <= 1: return "Este mes"
+                                return f"{v} meses"
+                            return f"{v} velas"
+
+                        duracion_txt = velas_a_tiempo(info["duracion_velas"], tf_key)
+                        desde_c_txt  = velas_a_tiempo(info["velas_desde_c"],  tf_key)
+
                         res_puntob.append({
-                            "Ticker":        ticker,
-                            "TF":            tf_name,
-                            "Tipo":          tipo_pb,
-                            "Estado B":      info["estado_b"],
-                            "Nivel B":       info["nivel_b"],
-                            "Precio A":      info["precio_a"],
-                            "Precio C":      info["precio_c"],
-                            "TP1 (161.8%)":  tp1,
-                            "TP2 (100%)":    tp2,
-                            "Duración":      f"{info['duracion_velas']} velas",
-                            "Velas desde C": info["velas_desde_c"],
-                            "Precio":        precio
+                            "Ticker":          ticker,
+                            "TF":              tf_name,
+                            "Tipo":            tipo_pb,
+                            "Estado B":        info["estado_b"],
+                            "Nivel B":         info["nivel_b"],
+                            "Precio A":        info["precio_a"],
+                            "Precio C":        info["precio_c"],
+                            "TP1 (161.8%)":    tp1,
+                            "TP2 (100%)":      tp2,
+                            "Duracion modulo": duracion_txt,
+                            "Desde C":         desde_c_txt,
+                            "Precio":          precio
                         })
 
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
@@ -1246,6 +1310,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
