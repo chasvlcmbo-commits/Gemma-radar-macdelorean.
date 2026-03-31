@@ -390,7 +390,7 @@ def check_punto_b(df, timeframe="D"):
 
     # Buscar estructura A-B-C en ventana reciente
     # Ventana de búsqueda: últimas max_velas*2 velas
-    ventana = min(n - 5, max_velas * 2)
+    ventana = min(n - 5, int(max_velas * 1.5))
     df_win  = df.iloc[-ventana:]
     c_win   = df_win['Close']
     l_win   = df_win['Low']
@@ -448,8 +448,10 @@ def check_punto_b(df, timeframe="D"):
 
                 # Solo nos interesan estructuras recientes: C en últimas max_velas/2 velas
                 velas_desde_c = nw - 1 - ic
-                if velas_desde_c > max_velas // 2:
+                max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
+                if velas_desde_c > max_desde_c:
                     continue
+
 
                 # Clasificar oscilación
                 if precio_c < precio_a:
@@ -462,7 +464,7 @@ def check_punto_b(df, timeframe="D"):
                 # Calcular altura del módulo y targets
                 altura   = nivel_b - min_abs
                 # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
-                pct_min = {"4H": 0.04, "D": 0.05, "W": 0.07, "M": 0.10}.get(timeframe, 0.05)
+                pct_min = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
                 if altura < nivel_b * pct_min:
                     continue
                 tp1      = round(min_abs + altura * 1.618, 2)
@@ -567,7 +569,8 @@ def check_punto_b(df, timeframe="D"):
 
                 # Solo estructuras recientes
                 velas_desde_c = nw - 1 - ic
-                if velas_desde_c > max_velas // 2:
+                max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
+                if velas_desde_c > max_desde_c:
                     continue
 
                 precio_actual = close.iloc[-1]
@@ -586,7 +589,7 @@ def check_punto_b(df, timeframe="D"):
                 tp2    = round(max_abs - altura * 2.0,   2)
 
                 # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
-                pct_min = {"4H": 0.04, "D": 0.05, "W": 0.07, "M": 0.10}.get(timeframe, 0.05)
+                pct_min = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
                 if altura < nivel_b * pct_min:
                     continue
                 # Precio rompiendo B a la baja o muy cerca
@@ -1318,6 +1321,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
