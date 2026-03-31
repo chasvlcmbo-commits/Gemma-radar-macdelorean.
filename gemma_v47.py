@@ -440,7 +440,7 @@ def check_punto_b(df, timeframe="D"):
                 if not es_min_local(l_win, ic):
                     continue
                 precio_c = l_win.iloc[ic]
-                if precio_c >= nivel_b:
+                if precio_c >= nivel_b * 0.93:  # C debe retroceder al menos 7% desde B
                     continue
                 dist_bc    = ic - ib  # velas de B a C
                 duracion_ac = ic - ia
