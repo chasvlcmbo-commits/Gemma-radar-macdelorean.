@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -417,6 +416,7 @@ def check_punto_b(df, timeframe="D"):
         if not es_min_local(l_win, ia):
             continue
         precio_a = l_win.iloc[ia]
+        fecha_a = df_win.index[ia].strftime("%d/%m/%Y") if hasattr(df_win.index[ia], "strftime") else str(df_win.index[ia])[:10]
 
         # Verificar que antes de A el precio venía BAJANDO (tendencia previa contraria)
         # El máximo de las 10-20 velas previas a A debe ser >= 7% superior a A
@@ -431,6 +431,7 @@ def check_punto_b(df, timeframe="D"):
             if not es_max_local(h_win, ib):
                 continue
             nivel_b = h_win.iloc[ib]
+            fecha_b = df_win.index[ib].strftime("%d/%m/%Y") if hasattr(df_win.index[ib], "strftime") else str(df_win.index[ib])[:10]
             if nivel_b <= precio_a * 1.07:  # B debe estar al menos 7% por encima de A
                 continue
 
@@ -440,6 +441,7 @@ def check_punto_b(df, timeframe="D"):
                 if not es_min_local(l_win, ic):
                     continue
                 precio_c = l_win.iloc[ic]
+                fecha_c = df_win.index[ic].strftime("%d/%m/%Y") if hasattr(df_win.index[ic], "strftime") else str(df_win.index[ic])[:10]
                 if precio_c >= nivel_b * 0.93:  # C debe retroceder al menos 7% desde B
                     continue
                 dist_bc    = ic - ib  # velas de B a C
@@ -517,6 +519,9 @@ def check_punto_b(df, timeframe="D"):
                     "dist_bc":        dist_bc,
                     "velas_desde_c":  velas_desde_c,
                     "velas_ruptura":  velas_tras_ruptura if roto_b else 0,
+                    "fecha_a":        fecha_a,
+                    "fecha_b":        fecha_b,
+                    "fecha_c":        fecha_c,
                 }
                 break
             if mejor: break
@@ -533,22 +538,23 @@ def check_punto_b(df, timeframe="D"):
     for ia in range(3, nw - min_velas - 3):
         if not es_max_local(h_win, ia):
             continue
-        precio_a = h_win.iloc[ia]
 
-        # Verificar que antes de A el precio venía SUBIENDO (tendencia previa contraria)
-        # El mínimo de las 10-20 velas previas a A debe ser <= 7% inferior a A
+        # Verificar tendencia previa alcista antes de A
         ventana_previa = min(ia, 20)
         if ventana_previa < 5:
             continue
+        precio_a = h_win.iloc[ia]
+        fecha_a  = df_win.index[ia].strftime("%d/%m/%Y") if hasattr(df_win.index[ia], "strftime") else str(df_win.index[ia])[:10]
         min_previo = l_win.iloc[ia - ventana_previa: ia].min()
-        if min_previo > precio_a * 0.93:  # no había subida previa significativa
+        if min_previo > precio_a * 0.93:
             continue
 
         for ib in range(ia + 3, nw - min_bc - 5):
             if not es_min_local(l_win, ib):
                 continue
             nivel_b = l_win.iloc[ib]
-            if nivel_b >= precio_a * 0.93:  # B debe estar al menos 7% por debajo de A
+            fecha_b = df_win.index[ib].strftime("%d/%m/%Y") if hasattr(df_win.index[ib], "strftime") else str(df_win.index[ib])[:10]
+            if nivel_b >= precio_a * 0.93:
                 continue
 
             dist_ab = ib - ia
@@ -557,15 +563,15 @@ def check_punto_b(df, timeframe="D"):
                 if not es_max_local(h_win, ic):
                     continue
                 precio_c = h_win.iloc[ic]
-                if precio_c <= nivel_b * 1.07:  # C debe retroceder al menos 7% desde B
+                fecha_c  = df_win.index[ic].strftime("%d/%m/%Y") if hasattr(df_win.index[ic], "strftime") else str(df_win.index[ic])[:10]
+                if precio_c <= nivel_b * 1.07:
                     continue
-                dist_bc    = ic - ib
+
+                dist_bc     = ic - ib
                 duracion_ac = ic - ia
 
                 if not (min_velas <= duracion_ac <= max_velas):
                     continue
-
-                # Simetría A->B ≈ B->C (±50%)
                 if not (dist_ab * 0.33 <= dist_bc <= dist_ab * 1.75):
                     continue
 
@@ -626,11 +632,13 @@ def check_punto_b(df, timeframe="D"):
                     "dist_bc":        dist_bc,
                     "velas_desde_c":  velas_desde_c,
                     "velas_ruptura":  velas_tras_ruptura if roto_b else 0,
+                    "fecha_a":        fecha_a,
+                    "fecha_b":        fecha_b,
+                    "fecha_c":        fecha_c,
                 }
                 break
             if mejor: break
         if mejor: break
-
     if mejor:
         return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
     return False, "", 0, 0, 0, {}
@@ -1127,15 +1135,16 @@ if lanzar:
                             "TF":            tf_name,
                             "Tipo":          tipo_pb,
                             "Estado B":      info["estado_b"],
-                            "Nivel B":       info["nivel_b"],
+                            "Fecha A":       info.get("fecha_a", "—"),
                             "Precio A":      info["precio_a"],
+                            "Fecha B":       info.get("fecha_b", "—"),
+                            "Nivel B":       info["nivel_b"],
+                            "Fecha C":       info.get("fecha_c", "—"),
                             "Precio C":      info["precio_c"],
                             "TP1 (161.8%)":  tp1,
                             "TP2 (200%)":    tp2,
                             "Dur. modulo":   duracion_txt,
                             "Desde C":       desde_c_txt,
-                            "Simetría A-B":  velas_a_tiempo(info["dist_ab"], tf_key),
-                            "Simetría B-C":  velas_a_tiempo(info["dist_bc"], tf_key),
                             "Roto hace":     roto_hace_txt,
                             "Precio":        precio
                         })
@@ -1325,6 +1334,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
