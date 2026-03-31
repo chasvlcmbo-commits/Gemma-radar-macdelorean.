@@ -380,17 +380,16 @@ def check_punto_b(df, timeframe="D"):
     """
     min_velas = {"4H": 35, "D": 40, "W": 13, "M": 7}.get(timeframe, 40)
     max_velas = {"4H": 90, "D": 60, "W": 30, "M": 12}.get(timeframe, 60)
+    min_bc    = 5  # mínimo de velas entre B y C en todos los TF
 
     if df is None or df.empty or len(df) < min_velas + 10:
         return False, "", 0, 0, 0, {}
 
-    close  = df['Close']
-    high   = df['High']
-    low    = df['Low']
-    n      = len(df)
+    close = df['Close']
+    high  = df['High']
+    low   = df['Low']
+    n     = len(df)
 
-    # Buscar estructura A-B-C en ventana reciente
-    # Ventana de búsqueda: últimas max_velas*2 velas
     ventana = min(n - 5, int(max_velas * 1.5))
     df_win  = df.iloc[-ventana:]
     c_win   = df_win['Close']
@@ -398,61 +397,58 @@ def check_punto_b(df, timeframe="D"):
     h_win   = df_win['High']
     nw      = len(df_win)
 
+    pct_min    = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
+    max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
+
+    def es_min_local(serie, i, dist=2):
+        return all(serie.iloc[i] < serie.iloc[i-j] for j in range(1, dist+1)) and \
+               all(serie.iloc[i] < serie.iloc[i+j] for j in range(1, dist+1))
+
+    def es_max_local(serie, i, dist=2):
+        return all(serie.iloc[i] > serie.iloc[i-j] for j in range(1, dist+1)) and \
+               all(serie.iloc[i] > serie.iloc[i+j] for j in range(1, dist+1))
+
+    # ══════════════════════════════════════════
+    # ESTRUCTURA ALCISTA: A(min) -> B(max) -> C(min)
+    # ══════════════════════════════════════════
     mejor = None
 
-    # Buscar todos los mínimos locales como candidatos a A
     for ia in range(3, nw - min_velas - 3):
-        # A debe ser mínimo local
-        if not (l_win.iloc[ia] < l_win.iloc[ia-1] and
-                l_win.iloc[ia] < l_win.iloc[ia-2] and
-                l_win.iloc[ia] < l_win.iloc[ia+1] and
-                l_win.iloc[ia] < l_win.iloc[ia+2]):
+        if not es_min_local(l_win, ia):
             continue
-
         precio_a = l_win.iloc[ia]
 
-        # Buscar B: máximo local DESPUÉS de A
-        for ib in range(ia + 3, nw - min_velas//2 - 3):
-            if not (h_win.iloc[ib] > h_win.iloc[ib-1] and
-                    h_win.iloc[ib] > h_win.iloc[ib-2] and
-                    h_win.iloc[ib] > h_win.iloc[ib+1] and
-                    h_win.iloc[ib] > h_win.iloc[ib+2]):
+        for ib in range(ia + 3, nw - min_bc - 5):
+            if not es_max_local(h_win, ib):
                 continue
-
             nivel_b = h_win.iloc[ib]
-
-            # B debe estar por encima de A
             if nivel_b <= precio_a:
                 continue
 
-            # Buscar C: mínimo local DESPUÉS de B
-            for ic in range(ib + 3, nw - 2):
-                if not (l_win.iloc[ic] < l_win.iloc[ic-1] and
-                        l_win.iloc[ic] < l_win.iloc[ic-2] and
-                        l_win.iloc[ic] < l_win.iloc[ic+1] and
-                        l_win.iloc[ic] < l_win.iloc[ic+2]):
+            dist_ab = ib - ia  # velas de A a B
+
+            for ic in range(ib + min_bc, nw - 2):  # mínimo min_bc velas entre B y C
+                if not es_min_local(l_win, ic):
                     continue
-
                 precio_c = l_win.iloc[ic]
-
-                # C debe estar por debajo de B
                 if precio_c >= nivel_b:
                     continue
 
-                # Verificar tiempo de formación A->C
+                dist_bc    = ic - ib  # velas de B a C
                 duracion_ac = ic - ia
+
+                # 1. Tiempo total A->C dentro del rango válido
                 if not (min_velas <= duracion_ac <= max_velas):
                     continue
 
-                # Verificar que precio actual está cerca o por encima de B
-                precio_actual = close.iloc[-1]
-
-                # Solo nos interesan estructuras recientes: C en últimas max_velas/2 velas
-                velas_desde_c = nw - 1 - ic
-                max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
-                if velas_desde_c > max_desde_c:
+                # 2. Simetría A->B ≈ B->C (±50%)
+                if not (dist_ab * 0.5 <= dist_bc <= dist_ab * 1.5):
                     continue
 
+                # 3. C reciente
+                velas_desde_c = nw - 1 - ic
+                if velas_desde_c > max_desde_c:
+                    continue
 
                 # Clasificar oscilación
                 if precio_c < precio_a:
@@ -462,62 +458,61 @@ def check_punto_b(df, timeframe="D"):
                     tipo_osc = "🟡 MALA OSCILACIÓN"
                     min_abs  = precio_a
 
-                # Calcular altura del módulo y targets
-                altura   = nivel_b - min_abs
-                # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
-                pct_min = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
+                # Altura mínima
+                altura = nivel_b - min_abs
                 if altura < nivel_b * pct_min:
                     continue
-                tp1      = round(min_abs + altura * 1.618, 2)
-                tp2      = round(min_abs + altura * 2.0,   2)
 
-                # Precio rompiendo B o muy cerca (dentro del 2%)
-                roto_b    = precio_actual >= nivel_b
-                cerca_b   = precio_actual >= nivel_b * 0.98
+                tp1 = round(min_abs + altura * 1.618, 2)
+                tp2 = round(min_abs + altura * 2.0,   2)
 
+                precio_actual = close.iloc[-1]
+                roto_b  = precio_actual >= nivel_b
+                cerca_b = precio_actual >= nivel_b * 0.98
                 if not cerca_b:
                     continue
 
-                # ── FILTRO MADUREZ ALCISTA ──
+                # Madurez alcista
+                velas_tras_ruptura = 0
                 if roto_b:
-                    # Contar velas desde que rompió B (desde C hacia adelante)
-                    velas_tras_ruptura = 0
                     for k_idx in range(ic + 1, nw):
                         if c_win.iloc[k_idx] >= nivel_b:
                             velas_tras_ruptura = nw - k_idx
                             break
-                    # Descartar si lleva más de 5 velas desde la ruptura
                     if velas_tras_ruptura > 5:
                         continue
-                    # Descartar si precio ya superó TP1
                     if precio_actual >= tp1:
                         continue
-                    # Descartar si precio retrocedió más del 50% de la altura por debajo de B
                     precio_minimo_tras_b = min(c_win.iloc[ic+1:].values) if ic+1 < nw else precio_actual
-                    nivel_invalidacion = nivel_b - (altura * 0.5)
-                    if precio_minimo_tras_b < nivel_invalidacion:
+                    if precio_minimo_tras_b < nivel_b - (altura * 0.5):
                         continue
 
-                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
-                velas_ruptura = velas_tras_ruptura if roto_b else 0
+                # Duración real = A hasta ruptura de B
+                # Si ya rompió: A->ruptura = duracion_ac + velas_tras_ruptura
+                # Si no rompió: A->C como estimación
+                if roto_b:
+                    dur_real = duracion_ac + velas_tras_ruptura
+                else:
+                    dur_real = duracion_ac
 
+                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
                 mejor = {
-                    "tipo":            tipo_osc,
-                    "nivel_b":         round(nivel_b, 2),
-                    "precio_a":        round(precio_a, 2),
-                    "precio_c":        round(precio_c, 2),
-                    "tp1":             tp1,
-                    "tp2":             tp2,
-                    "estado_b":        estado,
-                    "duracion_velas":  duracion_ac,
-                    "velas_desde_c":   velas_desde_c,
-                    "velas_ruptura":   velas_ruptura,
+                    "tipo":           tipo_osc,
+                    "nivel_b":        round(nivel_b, 2),
+                    "precio_a":       round(precio_a, 2),
+                    "precio_c":       round(precio_c, 2),
+                    "tp1":            tp1,
+                    "tp2":            tp2,
+                    "estado_b":       estado,
+                    "duracion_velas": dur_real,
+                    "dist_ab":        dist_ab,
+                    "dist_bc":        dist_bc,
+                    "velas_desde_c":  velas_desde_c,
+                    "velas_ruptura":  velas_tras_ruptura if roto_b else 0,
                 }
-                break  # tomamos el primer C válido para este B
-            if mejor:
                 break
-        if mejor:
-            break
+            if mejor: break
+        if mejor: break
 
     if mejor:
         return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
@@ -528,57 +523,40 @@ def check_punto_b(df, timeframe="D"):
     mejor = None
 
     for ia in range(3, nw - min_velas - 3):
-        # A debe ser máximo local
-        if not (h_win.iloc[ia] > h_win.iloc[ia-1] and
-                h_win.iloc[ia] > h_win.iloc[ia-2] and
-                h_win.iloc[ia] > h_win.iloc[ia+1] and
-                h_win.iloc[ia] > h_win.iloc[ia+2]):
+        if not es_max_local(h_win, ia):
             continue
-
         precio_a = h_win.iloc[ia]
 
-        # Buscar B: mínimo local DESPUÉS de A
-        for ib in range(ia + 3, nw - min_velas//2 - 3):
-            if not (l_win.iloc[ib] < l_win.iloc[ib-1] and
-                    l_win.iloc[ib] < l_win.iloc[ib-2] and
-                    l_win.iloc[ib] < l_win.iloc[ib+1] and
-                    l_win.iloc[ib] < l_win.iloc[ib+2]):
+        for ib in range(ia + 3, nw - min_bc - 5):
+            if not es_min_local(l_win, ib):
                 continue
-
             nivel_b = l_win.iloc[ib]
-
-            # B debe estar por debajo de A
             if nivel_b >= precio_a:
                 continue
 
-            # Buscar C: máximo local DESPUÉS de B
-            for ic in range(ib + 3, nw - 2):
-                if not (h_win.iloc[ic] > h_win.iloc[ic-1] and
-                        h_win.iloc[ic] > h_win.iloc[ic-2] and
-                        h_win.iloc[ic] > h_win.iloc[ic+1] and
-                        h_win.iloc[ic] > h_win.iloc[ic+2]):
+            dist_ab = ib - ia
+
+            for ic in range(ib + min_bc, nw - 2):
+                if not es_max_local(h_win, ic):
                     continue
-
                 precio_c = h_win.iloc[ic]
-
-                # C debe estar por encima de B
                 if precio_c <= nivel_b:
                     continue
 
-                # Verificar tiempo de formación A->C
+                dist_bc    = ic - ib
                 duracion_ac = ic - ia
+
                 if not (min_velas <= duracion_ac <= max_velas):
                     continue
 
-                # Solo estructuras recientes
+                # Simetría A->B ≈ B->C (±50%)
+                if not (dist_ab * 0.5 <= dist_bc <= dist_ab * 1.5):
+                    continue
+
                 velas_desde_c = nw - 1 - ic
-                max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
                 if velas_desde_c > max_desde_c:
                     continue
 
-                precio_actual = close.iloc[-1]
-
-                # Clasificar oscilación bajista
                 if precio_c > precio_a:
                     tipo_osc = "🟢 BUENA OSC. BAJISTA"
                     max_abs  = precio_c
@@ -586,45 +564,39 @@ def check_punto_b(df, timeframe="D"):
                     tipo_osc = "🟡 MALA OSC. BAJISTA"
                     max_abs  = precio_a
 
-                # Altura y targets bajistas
                 altura = max_abs - nivel_b
-                tp1    = round(max_abs - altura * 1.618, 2)
-                tp2    = round(max_abs - altura * 2.0,   2)
-
-                # ── FILTRO ALTURA MÍNIMA DEL MÓDULO ──
-                pct_min = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
                 if altura < nivel_b * pct_min:
                     continue
-                # Precio rompiendo B a la baja o muy cerca
+
+                tp1 = round(max_abs - altura * 1.618, 2)
+                tp2 = round(max_abs - altura * 2.0,   2)
+
+                precio_actual = close.iloc[-1]
                 roto_b  = precio_actual <= nivel_b
                 cerca_b = precio_actual <= nivel_b * 1.02
-
                 if not cerca_b:
                     continue
 
-                # ── FILTRO MADUREZ BAJISTA ──
+                velas_tras_ruptura = 0
                 if roto_b:
-                    # Contar velas desde que rompió B
-                    velas_tras_ruptura = 0
                     for k_idx in range(ic + 1, nw):
                         if h_win.iloc[k_idx] <= nivel_b:
                             velas_tras_ruptura = nw - k_idx
                             break
-                    # Descartar si lleva más de 5 velas desde la ruptura
                     if velas_tras_ruptura > 5:
                         continue
-                    # Descartar si precio ya bajó de TP1
                     if precio_actual <= tp1:
                         continue
-                    # Descartar si precio rebotó más del 50% de la altura por encima de B
                     precio_maximo_tras_b = max(h_win.iloc[ic+1:].values) if ic+1 < nw else precio_actual
-                    nivel_invalidacion = nivel_b + (altura * 0.5)
-                    if precio_maximo_tras_b > nivel_invalidacion:
+                    if precio_maximo_tras_b > nivel_b + (altura * 0.5):
                         continue
 
-                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
-                velas_ruptura = velas_tras_ruptura if roto_b else 0
+                if roto_b:
+                    dur_real = duracion_ac + velas_tras_ruptura
+                else:
+                    dur_real = duracion_ac
 
+                estado = "✅ ROTO" if roto_b else "⚡ CERCA"
                 mejor = {
                     "tipo":           tipo_osc,
                     "nivel_b":        round(nivel_b, 2),
@@ -633,19 +605,21 @@ def check_punto_b(df, timeframe="D"):
                     "tp1":            tp1,
                     "tp2":            tp2,
                     "estado_b":       estado,
-                    "duracion_velas": duracion_ac,
+                    "duracion_velas": dur_real,
+                    "dist_ab":        dist_ab,
+                    "dist_bc":        dist_bc,
                     "velas_desde_c":  velas_desde_c,
-                    "velas_ruptura":  velas_ruptura,
+                    "velas_ruptura":  velas_tras_ruptura if roto_b else 0,
                 }
                 break
-            if mejor:
-                break
-        if mejor:
-            break
+            if mejor: break
+        if mejor: break
 
     if mejor:
         return True, mejor["tipo"], mejor["nivel_b"], mejor["tp1"], mejor["tp2"], mejor
     return False, "", 0, 0, 0, {}
+
+
 
 
 def check_vela_engano(df, idx=-1):
@@ -1144,6 +1118,8 @@ if lanzar:
                             "TP2 (200%)":    tp2,
                             "Dur. modulo":   duracion_txt,
                             "Desde C":       desde_c_txt,
+                            "Simetría A-B":  velas_a_tiempo(info["dist_ab"], tf_key),
+                            "Simetría B-C":  velas_a_tiempo(info["dist_bc"], tf_key),
                             "Roto hace":     roto_hace_txt,
                             "Precio":        precio
                         })
