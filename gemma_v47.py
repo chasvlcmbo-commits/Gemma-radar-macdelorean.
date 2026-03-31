@@ -418,13 +418,20 @@ def check_punto_b(df, timeframe="D"):
         precio_a = l_win.iloc[ia]
         fecha_a = df_win.index[ia].strftime("%d/%m/%Y") if hasattr(df_win.index[ia], "strftime") else str(df_win.index[ia])[:10]
 
-        # Verificar que antes de A el precio venía BAJANDO (tendencia previa contraria)
-        # El máximo de las 10-20 velas previas a A debe ser >= 7% superior a A
-        ventana_previa = min(ia, 20)
-        if ventana_previa < 5:
+        # Verificar que antes de A el precio venía BAJANDO en tendencia clara
+        # 1. Debe haber un máximo previo al menos 15% superior a A
+        # 2. La EMA de las velas previas debe estar por encima del precio de A (tendencia bajista)
+        ventana_previa = min(ia, 30)
+        if ventana_previa < 10:
             continue
-        max_previo = h_win.iloc[ia - ventana_previa: ia].max()
-        if max_previo < precio_a * 1.07:  # no había caída previa significativa
+        precios_previos = h_win.iloc[ia - ventana_previa: ia]
+        max_previo = precios_previos.max()
+        if max_previo < precio_a * 1.15:  # impulso previo bajista mínimo 15%
+            continue
+        # EMA de los últimos precios de cierre previos debe estar por encima de A
+        cierres_previos = c_win.iloc[ia - ventana_previa: ia]
+        ema_previa = cierres_previos.ewm(span=10, adjust=False).mean().iloc[-1]
+        if ema_previa < precio_a * 1.05:  # tendencia previa no era bajista
             continue
 
         for ib in range(ia + 3, nw - min_bc - 5):
@@ -539,14 +546,22 @@ def check_punto_b(df, timeframe="D"):
         if not es_max_local(h_win, ia):
             continue
 
-        # Verificar tendencia previa alcista antes de A
-        ventana_previa = min(ia, 20)
-        if ventana_previa < 5:
+        # Verificar que antes de A el precio venía SUBIENDO en tendencia clara
+        # 1. Debe haber un mínimo previo al menos 15% inferior a A
+        # 2. La EMA de las velas previas debe estar por debajo del precio de A (tendencia alcista)
+        ventana_previa = min(ia, 30)
+        if ventana_previa < 10:
             continue
         precio_a = h_win.iloc[ia]
         fecha_a  = df_win.index[ia].strftime("%d/%m/%Y") if hasattr(df_win.index[ia], "strftime") else str(df_win.index[ia])[:10]
-        min_previo = l_win.iloc[ia - ventana_previa: ia].min()
-        if min_previo > precio_a * 0.93:
+        precios_previos_l = l_win.iloc[ia - ventana_previa: ia]
+        min_previo = precios_previos_l.min()
+        if min_previo > precio_a * 0.85:  # impulso previo alcista mínimo 15%
+            continue
+        # EMA de los últimos precios de cierre previos debe estar por debajo de A
+        cierres_previos = c_win.iloc[ia - ventana_previa: ia]
+        ema_previa = cierres_previos.ewm(span=10, adjust=False).mean().iloc[-1]
+        if ema_previa > precio_a * 0.95:  # tendencia previa no era alcista
             continue
 
         for ib in range(ia + 3, nw - min_bc - 5):
@@ -1334,6 +1349,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
