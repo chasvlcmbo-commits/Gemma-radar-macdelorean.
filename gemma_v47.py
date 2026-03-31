@@ -421,7 +421,7 @@ def check_punto_b(df, timeframe="D"):
             if not es_max_local(h_win, ib):
                 continue
             nivel_b = h_win.iloc[ib]
-            if nivel_b <= precio_a:
+            if nivel_b <= precio_a * 1.07:  # B debe estar al menos 7% por encima de A
                 continue
 
             dist_ab = ib - ia  # velas de A a B
@@ -432,7 +432,6 @@ def check_punto_b(df, timeframe="D"):
                 precio_c = l_win.iloc[ic]
                 if precio_c >= nivel_b:
                     continue
-
                 dist_bc    = ic - ib  # velas de B a C
                 duracion_ac = ic - ia
 
@@ -530,7 +529,7 @@ def check_punto_b(df, timeframe="D"):
             if not es_min_local(l_win, ib):
                 continue
             nivel_b = l_win.iloc[ib]
-            if nivel_b >= precio_a:
+            if nivel_b >= precio_a * 0.93:  # B debe estar al menos 7% por debajo de A
                 continue
 
             dist_ab = ib - ia
@@ -539,9 +538,8 @@ def check_punto_b(df, timeframe="D"):
                 if not es_max_local(h_win, ic):
                     continue
                 precio_c = h_win.iloc[ic]
-                if precio_c <= nivel_b:
+                if precio_c <= nivel_b * 1.07:  # C debe retroceder al menos 7% desde B
                     continue
-
                 dist_bc    = ic - ib
                 duracion_ac = ic - ia
 
@@ -1308,6 +1306,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
