@@ -1,3 +1,4 @@
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -498,17 +499,19 @@ def check_punto_b(df, timeframe="D"):
                         continue
 
                 estado = "✅ ROTO" if roto_b else "⚡ CERCA"
+                velas_ruptura = velas_tras_ruptura if roto_b else 0
 
                 mejor = {
-                    "tipo":          tipo_osc,
-                    "nivel_b":       round(nivel_b, 2),
-                    "precio_a":      round(precio_a, 2),
-                    "precio_c":      round(precio_c, 2),
-                    "tp1":           tp1,
-                    "tp2":           tp2,
-                    "estado_b":      estado,
-                    "duracion_velas": duracion_ac,
-                    "velas_desde_c": velas_desde_c,
+                    "tipo":            tipo_osc,
+                    "nivel_b":         round(nivel_b, 2),
+                    "precio_a":        round(precio_a, 2),
+                    "precio_c":        round(precio_c, 2),
+                    "tp1":             tp1,
+                    "tp2":             tp2,
+                    "estado_b":        estado,
+                    "duracion_velas":  duracion_ac,
+                    "velas_desde_c":   velas_desde_c,
+                    "velas_ruptura":   velas_ruptura,
                 }
                 break  # tomamos el primer C válido para este B
             if mejor:
@@ -620,6 +623,7 @@ def check_punto_b(df, timeframe="D"):
                         continue
 
                 estado = "✅ ROTO" if roto_b else "⚡ CERCA"
+                velas_ruptura = velas_tras_ruptura if roto_b else 0
 
                 mejor = {
                     "tipo":           tipo_osc,
@@ -631,6 +635,7 @@ def check_punto_b(df, timeframe="D"):
                     "estado_b":       estado,
                     "duracion_velas": duracion_ac,
                     "velas_desde_c":  velas_desde_c,
+                    "velas_ruptura":  velas_ruptura,
                 }
                 break
             if mejor:
@@ -1120,20 +1125,27 @@ if lanzar:
 
                         duracion_txt = velas_a_tiempo(info["duracion_velas"], tf_key)
                         desde_c_txt  = velas_a_tiempo(info["velas_desde_c"],  tf_key)
+                        if info["estado_b"] == "✅ ROTO" and info["velas_ruptura"] > 0:
+                            roto_hace_txt = velas_a_tiempo(info["velas_ruptura"], tf_key)
+                        elif info["estado_b"] == "✅ ROTO":
+                            roto_hace_txt = "Hoy"
+                        else:
+                            roto_hace_txt = "—"
 
                         res_puntob.append({
-                            "Ticker":          ticker,
-                            "TF":              tf_name,
-                            "Tipo":            tipo_pb,
-                            "Estado B":        info["estado_b"],
-                            "Nivel B":         info["nivel_b"],
-                            "Precio A":        info["precio_a"],
-                            "Precio C":        info["precio_c"],
-                            "TP1 (161.8%)": tp1,
-                            "TP2 (200%)":   tp2,
-                            "Duracion modulo": duracion_txt,
-                            "Desde C":         desde_c_txt,
-                            "Precio":          precio
+                            "Ticker":        ticker,
+                            "TF":            tf_name,
+                            "Tipo":          tipo_pb,
+                            "Estado B":      info["estado_b"],
+                            "Nivel B":       info["nivel_b"],
+                            "Precio A":      info["precio_a"],
+                            "Precio C":      info["precio_c"],
+                            "TP1 (161.8%)":  tp1,
+                            "TP2 (200%)":    tp2,
+                            "Dur. modulo":   duracion_txt,
+                            "Desde C":       desde_c_txt,
+                            "Roto hace":     roto_hace_txt,
+                            "Precio":        precio
                         })
 
     ph_prem.empty(); ph_velas.empty(); ph_div.empty()
