@@ -1,4 +1,3 @@
-
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -380,7 +379,7 @@ def check_punto_b(df, timeframe="D"):
     """
     min_velas = {"4H": 35, "D": 40, "W": 13, "M": 7}.get(timeframe, 40)
     max_velas = {"4H": 90, "D": 60, "W": 30, "M": 12}.get(timeframe, 60)
-    min_bc    = 5  # mínimo de velas entre B y C en todos los TF
+    min_bc    = 3  # mínimo de velas entre B y C en todos los TF
 
     if df is None or df.empty or len(df) < min_velas + 10:
         return False, "", 0, 0, 0, {}
@@ -390,7 +389,7 @@ def check_punto_b(df, timeframe="D"):
     low   = df['Low']
     n     = len(df)
 
-    ventana = min(n - 5, int(max_velas * 1.5))
+    ventana = min(n - 5, int(max_velas * 2.5))
     df_win  = df.iloc[-ventana:]
     c_win   = df_win['Close']
     l_win   = df_win['Low']
@@ -398,7 +397,7 @@ def check_punto_b(df, timeframe="D"):
     nw      = len(df_win)
 
     pct_min    = {"4H": 0.06, "D": 0.08, "W": 0.10, "M": 0.15}.get(timeframe, 0.08)
-    max_desde_c = {"4H": 15, "D": 10, "W": 6, "M": 3}.get(timeframe, 10)
+    max_desde_c = {"4H": 20, "D": 15, "W": 8, "M": 4}.get(timeframe, 15)
 
     def es_min_local(serie, i, dist=2):
         return all(serie.iloc[i] < serie.iloc[i-j] for j in range(1, dist+1)) and \
@@ -442,7 +441,7 @@ def check_punto_b(df, timeframe="D"):
                     continue
 
                 # 2. Simetría A->B ≈ B->C (±50%)
-                if not (dist_ab * 0.5 <= dist_bc <= dist_ab * 1.5):
+                if not (dist_ab * 0.33 <= dist_bc <= dist_ab * 1.75):
                     continue
 
                 # 3. C reciente
@@ -550,7 +549,7 @@ def check_punto_b(df, timeframe="D"):
                     continue
 
                 # Simetría A->B ≈ B->C (±50%)
-                if not (dist_ab * 0.5 <= dist_bc <= dist_ab * 1.5):
+                if not (dist_ab * 0.33 <= dist_bc <= dist_ab * 1.75):
                     continue
 
                 velas_desde_c = nw - 1 - ic
@@ -1309,6 +1308,7 @@ else:
         ← SELECCIONA ÍNDICES Y FILTROS · PULSA LANZAR RADAR →
     </div>
     """, unsafe_allow_html=True)
+
 
 
 
